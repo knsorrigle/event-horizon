@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+*.log
+.playwright-mcp
+.vercel
+# Melodrama (ITF FFL) must not be redistributed via a repository; fetched by scripts/fetch-fonts.mjs
+public/fonts/melodrama

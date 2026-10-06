@@ -1,0 +1,140 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------ fonts --- */
+
+/* Melodrama · ITF Free Font License · fetched by scripts/fetch-fonts.mjs */
+@font-face {
+  font-family: 'Melodrama';
+  src: url('/fonts/melodrama/Melodrama-Variable.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Archivo · OFL · latin subset, variable wdth + wght */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-latin-var.woff2') format('woff2');
+  font-weight: 400 800;
+  font-stretch: 100% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* IBM Plex Mono · OFL · latin subset */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/plex-mono-latin-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/plex-mono-latin-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+
+/* ----------------------------------------------------------- tokens --- */
+
+/* Strictly monochrome: one cold, desaturated grey ramp. No hue anywhere. */
+@theme {
+  --font-display: 'Melodrama', 'Times New Roman', serif;
+  --font-label: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-void: #050607;
+  --color-ink-1: #e2ecee;
+  --color-ink-2: #a3aeb1;
+  --color-ink-3: #677275;
+  --color-ink-4: #2b3234;
+}
+
+/* ------------------------------------------------------------- base --- */
+
+@layer base {
+  html {
+    background: var(--color-void);
+    color: var(--color-ink-1);
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* No body background: it would paint over the fixed -z canvas. The void
+     colour lives on <html>, which paints beneath everything. */
+  body {
+    font-family: var(--font-label);
+  }
+
+  ::selection {
+    background: var(--color-ink-1);
+    color: var(--color-void);
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--color-ink-1);
+    outline-offset: 3px;
+  }
+}
+
+/* ------------------------------------------------------- utilities --- */
+
+/* Album-sleeve label: tiny, heavy, expanded, widely tracked. */
+@utility label {
+  font-family: var(--font-label);
+  font-weight: 800;
+  font-stretch: 125%;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------- components --- */
+
+@layer components {
+  .hero-name {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(5.5rem, 19vw, 21rem);
+    line-height: 0.78;
+    letter-spacing: -0.025em;
+    color: var(--color-ink-1);
+    margin-left: -0.04em;
+  }
+
+  .readouts {
+    display: grid;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .readouts > div {
+    display: grid;
+    grid-template-columns: 13ch auto;
+    column-gap: 1ch;
+  }
+  .readouts dt {
+    color: var(--color-ink-3);
+  }
+  .readouts dt::after {
+    content: ' =';
+  }
+  .readouts sub {
+    font-size: 0.8em;
+    vertical-align: -0.15em;
+  }
+}
+
+/* -------------------------------------------------- view transitions --- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
