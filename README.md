@@ -5,7 +5,7 @@ whole site is a real-time black hole. Scrolling is a fall toward the event horiz
 are bodies orbiting in the accretion disk, lensed by the same spacetime as everything else. Past
 the horizon, the singularity holds the contact details.
 
-**Live:** https://event-horizon-green.vercel.app
+**Live:** https://singularity0.vercel.app
 
 It's strictly monochrome (one cold grey ramp, no hue anywhere) and rendered as a stippled print
 rather than smooth CG: blue-noise grain in the falloffs, soft glowing cores.
@@ -147,9 +147,11 @@ Vercel, connected to this GitHub repo: every push to `main` deploys to productio
 holds the build command, an SPA rewrite to a hero-less `app.html` shell (so unknown URLs don't
 flash the home page), immutable caching for hashed assets, and basic security headers.
 
-Absolute URLs (canonical, `og:url`, `og:image`, sitemap) come from `SITE_URL` or, on Vercel, from
-`VERCEL_PROJECT_PRODUCTION_URL` automatically. To use a custom domain, add it in Vercel and set
-`SITE_URL=https://your.domain` for production builds.
+The site's domain is **singularity0.vercel.app**. Absolute URLs (canonical, `og:url`, `og:image`,
+sitemap) come from the `SITE_URL` environment variable, which is set to `https://singularity0.vercel.app`
+for production in the Vercel project. Without it they'd fall back to `VERCEL_PROJECT_PRODUCTION_URL`,
+which can be a different alias. If the domain changes, update the domain in Vercel, then
+`vercel env update SITE_URL production` and redeploy.
 
 ## Add or change a project
 
