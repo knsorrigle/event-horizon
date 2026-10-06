@@ -105,8 +105,8 @@ and cards attach to what you actually see.
 Optional, and never automatic. On first visit, two choices appear under the intro ring:
 **Enter with sound** or **Enter in silence**. The click is the gesture that unlocks audio, and the
 choice is remembered. Returning visitors who chose sound hear it start on their first click of the
-visit. The toggle at the top centre (a waveform when on, a flat line when off) switches it on any
-page.
+visit. The **SOUND ON / SOUND OFF** toggle (top centre; under the handle on phones) switches it on
+any page, with a moving waveform beside it when on and a flat line when off.
 
 Everything is **synthesised live with the Web Audio API**. There are no recordings, so the layer is
 copyright-free by construction (see [CREDITS.md](CREDITS.md)). The engine (`src/audio/soundEngine.ts`,
@@ -164,7 +164,7 @@ Node's built-in TypeScript type stripping.
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173 (Tweakpane panel top-right, fps readout top-centre)
+npm run dev        # http://localhost:5173 (Tweakpane panel top-right, fps readout bottom-right)
 npm run build      # typecheck, client build, hero SSR build, postbuild (pages, sitemap, robots, llms.txt)
 npm run preview    # serve the production build at http://localhost:4173
 npm run capture    # with the preview running: re-render public/og.jpg and the fallback stills
