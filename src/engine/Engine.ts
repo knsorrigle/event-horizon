@@ -173,6 +173,11 @@ export class Engine {
     return ms;
   }
 
+  /** Live camera position (world, Rs). */
+  get cameraPosition(): Vector3 {
+    return this.view.pos;
+  }
+
   /** Current disk clock (bodies orbit on it too). */
   get time(): number {
     return this.diskTime;
@@ -237,6 +242,8 @@ export class Engine {
       u.uBodyLook.value[i]!.z = b.spin;
     });
     u.uBodyVis.value = rig.bodies;
+    // Defocus by sampling the raymarch's mip chain (level 3.2 ≈ 1/9 resolution).
+    this.hole.blurLod.value = rig.blur * 3.2;
     u.uHoverId.value = activeBody();
 
     // renderScale is relative to device pixels; the composer runs at CSS pixels.
@@ -263,6 +270,8 @@ export class Engine {
     s.exposure.value = grain.exposure * rig.exposure * (1 - rig.fade);
     s.blackPoint.value = grain.blackPoint;
     s.gamma.value = grain.gamma;
+    // Reading mode also caps the tone, so even saturated disk light sits under text.
+    s.ceiling.value = 1 - rig.blur * 0.5;
     s.levels.value = grain.levels;
     s.grainPx.value = Math.max(1, Math.round(grain.sizeCssPx));
     s.coarse.value = grain.coarse;

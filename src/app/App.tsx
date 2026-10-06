@@ -12,7 +12,8 @@ export function App() {
       </a>
       <Stage />
       {route.name === 'home' && <Home />}
-      {route.name === 'work' && <Work slug={route.slug} />}
+      {/* Keyed: each case study mounts fresh (SplitText rewrites its heading's DOM). */}
+      {route.name === 'work' && <Work key={route.slug} slug={route.slug} />}
       {route.name === 'notFound' && <NotFound />}
     </>
   );

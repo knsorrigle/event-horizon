@@ -8,7 +8,7 @@ import { setFocused } from '../engine/interaction';
  */
 export function ProjectList({ onLaunch }: { onLaunch: (index: number) => void }) {
   return (
-    <nav aria-label="Projects" className="sr-only">
+    <nav aria-label="Projects" className="sr-sticky">
       <h3>Projects</h3>
       <ul>
         {projects.map((p, i) => (

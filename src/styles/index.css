@@ -174,6 +174,196 @@
   }
 }
 
+/* ------------------------------------------------------ case study --- */
+
+@layer components {
+  .case-bar {
+    background: linear-gradient(to bottom, var(--color-void) 0%, rgb(5 6 7 / 0.85) 45%, rgb(5 6 7 / 0));
+  }
+
+  /* Visually hidden but sticky mid-viewport: focusing these links never
+     scrolls the page while their section is on screen. */
+  .sr-sticky {
+    position: sticky;
+    top: 50vh;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .case-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    /* Fit the name to its column on one line: ≤0.5em average advance per
+       Melodrama glyph, so size = column width / (chars × 0.46). */
+    font-size: min(12rem, calc(100cqi / (var(--chars, 10) * 0.5)));
+    line-height: 0.82;
+    letter-spacing: -0.02em;
+    color: var(--color-ink-1);
+    margin-left: -0.04em;
+    white-space: nowrap;
+  }
+
+  .case-chapter {
+    display: grid;
+    gap: 1.5rem;
+    padding: 6rem 0;
+    border-top: 1px solid var(--color-ink-4);
+  }
+  @media (min-width: 768px) {
+    .case-chapter {
+      grid-template-columns: minmax(10rem, 1fr) 3fr;
+      gap: 3rem;
+    }
+  }
+
+  .pending {
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--color-ink-3);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* Data panels: hairline frame, corner ticks, mono header strip. */
+  .panel {
+    position: relative;
+    border: 1px solid var(--color-ink-4);
+    background: rgb(5 6 7 / 0.78);
+  }
+  .panel::before,
+  .panel::after {
+    content: '';
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    pointer-events: none;
+    border-color: var(--color-ink-2);
+    border-style: solid;
+  }
+  .panel::before {
+    top: -1px;
+    left: -1px;
+    border-width: 1px 0 0 1px;
+  }
+  .panel::after {
+    right: -1px;
+    bottom: -1px;
+    border-width: 0 1px 1px 0;
+  }
+  .panel-head,
+  .panel-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.45rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+  .panel-head {
+    border-bottom: 1px solid var(--color-ink-4);
+  }
+  .panel-foot {
+    border-top: 1px solid var(--color-ink-4);
+  }
+  .panel-body {
+    padding: 0.25rem 0.75rem 0.6rem;
+  }
+
+  .spec {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .spec > div {
+    display: grid;
+    grid-template-columns: 8ch 1fr;
+    gap: 1ch;
+    padding: 0.45rem 0;
+    border-bottom: 1px dotted var(--color-ink-4);
+  }
+  .spec > div:last-child {
+    border-bottom: 0;
+  }
+  .spec dt {
+    color: var(--color-ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .spec dd {
+    color: var(--color-ink-1);
+  }
+  .spec sub {
+    font-size: 0.8em;
+  }
+
+  /* Plates: a gridded imaging field with edge rulers and a crosshair. */
+  .plate-field {
+    position: relative;
+    overflow: hidden;
+    background-color: rgb(5 6 7 / 0.6);
+    background-image:
+      linear-gradient(to right, var(--color-ink-4) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-ink-4) 1px, transparent 1px),
+      repeating-linear-gradient(to right, var(--color-ink-3) 0 1px, transparent 1px 2%),
+      repeating-linear-gradient(to bottom, var(--color-ink-3) 0 1px, transparent 1px 2%);
+    background-size:
+      10% 10%,
+      10% 10%,
+      100% 6px,
+      6px 100%;
+    background-repeat: repeat, repeat, no-repeat, no-repeat;
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  .plate-field img,
+  .plate-field video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* The site has no hue: media is shown as luminance only. */
+    filter: grayscale(1) contrast(1.06) brightness(0.92);
+  }
+  .plate-cross {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 28px;
+    height: 28px;
+    transform: translate(-50%, -50%);
+    background:
+      linear-gradient(var(--color-ink-2), var(--color-ink-2)) center / 1px 100% no-repeat,
+      linear-gradient(var(--color-ink-2), var(--color-ink-2)) center / 100% 1px no-repeat;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .plate-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-label);
+    font-weight: 800;
+    font-stretch: 125%;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+}
+
 /* ------------------------------------------------------ annotations --- */
 
 /* Hairlines only. Hierarchy by brightness and dash, never colour. */

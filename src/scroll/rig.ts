@@ -25,6 +25,8 @@ export interface Rig {
   focus: number;
   /** 0 = orbit pose above, 1 = parked beside the target body (co-orbiting). */
   park: number;
+  /** Background defocus, 0 = sharp, 1 = fully soft (case-study pages). */
+  blur: number;
 }
 
 export function heroRig(): Rig {
@@ -43,11 +45,15 @@ export function heroRig(): Rig {
     targetBody: -1,
     focus: 0,
     park: 0,
+    blur: 0,
   };
 }
 
 /** Framing used when the camera is parked beside a body (case-study pages). */
-export const PARKED = { fovDeg: 34, rollDeg: 0, shiftX: 0, shiftY: 0, exposure: 0.85, fade: 0, bodies: 1 };
+export const PARKED = { fovDeg: 34, rollDeg: 0, shiftX: 0, shiftY: 0, exposure: 0.85, fade: 0, bodies: 1, blur: 0 };
+
+/** Behind a case study: the parked view, dimmed and defocused so text reads. */
+export const READING = { exposure: 0.3, blur: 1 };
 
 export const rig: Rig = heroRig();
 

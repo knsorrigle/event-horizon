@@ -2,6 +2,7 @@ import {
   GLSL3,
   HalfFloatType,
   LinearFilter,
+  LinearMipmapLinearFilter,
   Matrix3,
   NearestFilter,
   RawShaderMaterial,
@@ -13,9 +14,10 @@ import {
   WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
-import { CopyMaterial, Pass } from 'postprocessing';
+import { Pass } from 'postprocessing';
 import vertexShader from '../shaders/fullscreen.vert';
 import fragmentShader from '../shaders/blackhole.frag';
+import upsampleShader from '../shaders/upsample.frag';
 import { MAX_BODIES } from '../content/projects';
 
 /**
@@ -52,7 +54,9 @@ export class BlackHolePass extends Pass {
   renderScale = 0.5;
 
   private readonly marchMaterial: RawShaderMaterial;
-  private readonly copyMaterial = new CopyMaterial();
+  private readonly upsampleMaterial: RawShaderMaterial;
+  /** Defocus as a mip level of the raymarch target (0 = sharp). */
+  readonly blurLod = new Uniform(0);
   private readonly target: WebGLRenderTarget;
   private readonly fullSize = new Vector2(1, 1);
   private readonly pickBuffer = new Uint8Array(4);
@@ -80,6 +84,21 @@ export class BlackHolePass extends Pass {
     const ids = this.target.textures[1]!;
     ids.type = UnsignedByteType;
     ids.minFilter = ids.magFilter = NearestFilter;
+    ids.generateMipmaps = false;
+    // The colour attachment keeps a mip chain (regenerated after each render;
+    // cheap at this size) so the upsample can defocus by sampling a coarser level.
+    const color = this.target.textures[0]!;
+    color.minFilter = LinearMipmapLinearFilter;
+    color.generateMipmaps = true;
+
+    this.upsampleMaterial = new RawShaderMaterial({
+      glslVersion: GLSL3,
+      vertexShader,
+      fragmentShader: upsampleShader,
+      uniforms: { tMarch: new Uniform(color), uLod: this.blurLod },
+      depthTest: false,
+      depthWrite: false,
+    });
     this.fullscreenMaterial = this.marchMaterial;
     this.needsSwap = true;
   }
@@ -93,8 +112,7 @@ export class BlackHolePass extends Pass {
     renderer.setRenderTarget(this.target);
     renderer.render(this.scene, this.camera);
 
-    this.copyMaterial.inputBuffer = this.target.texture;
-    this.fullscreenMaterial = this.copyMaterial;
+    this.fullscreenMaterial = this.upsampleMaterial;
     renderer.setRenderTarget(this.renderToScreen ? null : output);
     renderer.render(this.scene, this.camera);
   }
@@ -136,7 +154,7 @@ export class BlackHolePass extends Pass {
   override dispose(): void {
     this.target.dispose();
     this.marchMaterial.dispose();
-    this.copyMaterial.dispose();
+    this.upsampleMaterial.dispose();
     super.dispose();
   }
 }

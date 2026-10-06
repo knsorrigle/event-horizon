@@ -12,6 +12,7 @@ uniform vec2 noiseOffset;      // re-rolled a few times per second → shimmer
 uniform float exposure;
 uniform float blackPoint;     // HDR luminance below this is pure black
 uniform float gamma;
+uniform float ceiling;         // caps tone after mapping (reading mode dims highlights too)
 uniform float levels;          // quantisation levels (fewer = grainier)
 uniform float grainPx;         // device pixels per grain cell
 uniform float coarse;          // shadow cells are this many grain cells wide
@@ -36,7 +37,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   // The black point trims bloom's faint far tail so empty sky stays black;
   // halos near the disk are far above it and keep their grain.
   float lum = max(inputColor.r * exposure - blackPoint, 0.0);
-  float t = pow(1.0 - exp(-lum), gamma);
+  float t = pow(1.0 - exp(-lum), gamma) * ceiling;
 
   vec2 cell = floor(gl_FragCoord.xy / grainPx);
   float nFine = threshold(cell, vec2(0.0));

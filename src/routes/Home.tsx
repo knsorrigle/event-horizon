@@ -8,12 +8,12 @@ import { buildFall } from '../scroll/fall';
 import { animateChapter } from '../scroll/chapters';
 import { getEngine } from '../engine/engineStore';
 import { lenis, onTick, prefersReducedMotion } from '../loop/ticker';
-import { resetRig } from '../scroll/rig';
+import { resetRig, rig } from '../scroll/rig';
 import { Annotations } from '../components/Annotations';
 import { ProjectList } from '../components/ProjectList';
 import { projects } from '../content/projects';
 import { hoveredBody, setInteractive, setLocked } from '../engine/interaction';
-import { slingshot } from '../scroll/slingshot';
+import { setDeparture, slingshot } from '../scroll/slingshot';
 import { navigate } from '../app/router';
 
 // Section heights (vh) set each chapter's share of the scroll, and therefore
@@ -29,6 +29,8 @@ function launch(index: number): void {
   const project = projects[index];
   if (!project || launching) return;
   launching = true;
+  // Remember the exact orbit we leave from, for the return trip.
+  setDeparture({ rig: { ...rig }, scrollY: lenis ? lenis.scroll : window.scrollY });
   setLocked(index + 1);
   lenis?.stop();
   slingshot(index, {
@@ -36,7 +38,7 @@ function launch(index: number): void {
     onComplete: () => {
       launching = false;
       lenis?.start();
-      navigate(`/work/${project.slug}`);
+      navigate(`/work/${project.slug}`, { fromOrbit: true });
     },
   });
 }
