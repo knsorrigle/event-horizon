@@ -14,6 +14,14 @@ export type SoundPref = 'on' | 'off' | null;
 
 const KEY = 'eh.sound';
 
+/**
+ * Phones and tablets: a lighter graph and a bigger output buffer. Their audio
+ * thread shares a small, GPU-throttled CPU with the raymarch, and the default
+ * low-latency buffer underruns (crackles) on load spikes. An ambient score
+ * doesn't need low latency.
+ */
+const lite = window.matchMedia('(pointer: coarse)').matches;
+
 function readPref(): SoundPref {
   try {
     const v = window.localStorage.getItem(KEY);
@@ -73,7 +81,7 @@ export function enableSound(): void {
   armed = false;
   emit();
   if (!ctx) {
-    ctx = new AudioContext({ latencyHint: 'interactive' });
+    ctx = new AudioContext({ latencyHint: lite ? 'playback' : 'interactive' });
     // A one-sample silent buffer completes the unlock on older iOS.
     const silent = ctx.createBufferSource();
     silent.buffer = ctx.createBuffer(1, 1, 22050);
@@ -88,7 +96,7 @@ export function enableSound(): void {
   }
   const c = ctx;
   loading ??= import('./soundEngine').then(async ({ AudioEngine }) => {
-    engine = await AudioEngine.create(c, { reducedMotion: prefersReducedMotion });
+    engine = await AudioEngine.create(c, { reducedMotion: prefersReducedMotion, lite });
     startFeed();
     if (audible) {
       engine.fadeIn();

@@ -108,6 +108,7 @@ export class AudioEngine {
   private constructor(
     readonly ctx: AudioContext,
     private readonly reducedMotion: boolean,
+    lite: boolean,
   ) {
     const c = ctx;
     const gain = (v = 1) => {
@@ -133,7 +134,9 @@ export class AudioEngine {
     this.worldGate.connect(this.master);
 
     this.convolver = c.createConvolver();
-    this.convolver.buffer = impulseResponse(c);
+    // Lite (touch devices): a shorter tail. Chrome convolves the tail on a
+    // background thread whose cost grows with its length.
+    this.convolver.buffer = lite ? impulseResponse(c, 3.2, 2.2) : impulseResponse(c);
     this.wet = gain(0.8);
     this.convolver.connect(this.wet).connect(this.worldGate);
 
@@ -165,7 +168,7 @@ export class AudioEngine {
     const droneMix = gain(0.3);
     const shaper = c.createWaveShaper();
     shaper.curve = saturationCurve(2.4);
-    shaper.oversample = '2x';
+    shaper.oversample = lite ? 'none' : '2x';
     const droneLP = c.createBiquadFilter();
     droneLP.type = 'lowpass';
     droneLP.frequency.value = 1100;
@@ -299,8 +302,8 @@ export class AudioEngine {
     this.nextRadio = now;
   }
 
-  static async create(ctx: AudioContext, opts: { reducedMotion: boolean }): Promise<AudioEngine> {
-    const engine = new AudioEngine(ctx, opts.reducedMotion);
+  static async create(ctx: AudioContext, opts: { reducedMotion: boolean; lite: boolean }): Promise<AudioEngine> {
+    const engine = new AudioEngine(ctx, opts.reducedMotion, opts.lite);
     engine.whoosh = await renderWhoosh(ctx.sampleRate);
     engine.whooshRev = reversed(ctx, engine.whoosh);
     void engine.loadAmbientTrack();
