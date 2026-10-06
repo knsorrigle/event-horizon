@@ -148,6 +148,12 @@
     background: radial-gradient(closest-side, rgb(5 6 7 / 0.82), rgb(5 6 7 / 0.55) 55%, rgb(5 6 7 / 0));
   }
 
+  /* For longer text over the brightest disk light (the bio). */
+  .scrim--strong::before {
+    inset: -3rem -4rem;
+    background: radial-gradient(closest-side, rgb(5 6 7 / 0.92), rgb(5 6 7 / 0.78) 60%, rgb(5 6 7 / 0));
+  }
+
   .readouts {
     display: grid;
     gap: 0.35rem;

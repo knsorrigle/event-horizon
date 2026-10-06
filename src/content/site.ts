@@ -1,8 +1,7 @@
 export const site = {
   name: 'Rohith A',
   handle: 'alpharnog',
-  // TODO(rohith): placeholder tagline, drafted only to set the layout. Replace with your own line.
-  tagline: 'Tools, simulations and light, built close to the edge.',
+  tagline: 'LEMME SLACK OFF I DONT WANNA WORK',
 } as const;
 
 /**
@@ -27,8 +26,7 @@ export const chapters = {
     name: 'Accretion',
     title: 'Accretion',
     caption: 'About',
-    // TODO(rohith): your bio / manifesto, 2–4 sentences. Placeholder shown on the page until then.
-    bio: '[Bio to be written: two or three sentences on who you are, what you build, and what pulls you in.]',
+    bio: "I'm a computer science student in Bangalore and a creative technologist: I design, build and ship across UI, frontend and full-stack systems. Im into all the cool stuffs that exist,rn i wanna build a game but PERHAPS i do not have much knowledge about it so yea Learnin bout stuffs. I'm pulled toward anything where engineering and aesthetics have to be solved at the same time^_^",
     verse: ['What falls in', 'heats up.', 'What heats up', 'shines.'],
   },
   fall: {
@@ -50,12 +48,11 @@ export const chapters = {
 export type ChapterId = keyof typeof chapters;
 
 /**
- * Contact. TODO(rohith): fill every value; nothing here is guessed.
- * null renders a [TODO] marker in dev and is omitted in production.
+ * Contact rows on the singularity screen. A null value renders a [TODO]
+ * marker in dev and is omitted in production. (No LinkedIn or résumé, by
+ * choice; add a row here if that changes.)
  */
 export const contact: readonly { label: string; kind: 'email' | 'url' | 'file'; value: string | null }[] = [
-  { label: 'Email', kind: 'email', value: null }, // TODO(rohith): address
-  { label: 'GitHub', kind: 'url', value: null }, // TODO(rohith): profile URL
-  { label: 'LinkedIn', kind: 'url', value: null }, // TODO(rohith): profile URL
-  { label: 'Résumé', kind: 'file', value: null }, // TODO(rohith): drop the PDF in /public and put its path here
+  { label: 'Email', kind: 'email', value: 'alph4nog@gmail.com' },
+  { label: 'GitHub', kind: 'url', value: 'https://github.com/knsorrigle' },
 ];

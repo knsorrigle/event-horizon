@@ -206,7 +206,7 @@ export function Home() {
               <Verse lines={accretion.verse} index="III.a" className="scrim justify-self-start" />
               <div />
               <div className="tidal grid items-end gap-8 md:grid-cols-[1fr_auto]">
-                <p data-line className="scrim max-w-[38ch] font-display text-[clamp(1.2rem,1.9vw,1.7rem)] leading-[1.3] font-light text-ink-1">
+                <p data-line className="scrim scrim--strong max-w-[46ch] font-display text-[clamp(1.05rem,1.45vw,1.35rem)] leading-[1.38] font-light text-ink-1">
                   {accretion.bio}
                 </p>
                 <div className="scrim md:text-right">

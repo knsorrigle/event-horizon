@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 // Node ≥ 22.18 / 23.6 strips TypeScript types natively; projects.ts is erasable.
 import { projects } from '../src/content/projects.ts';
+import { site } from '../src/content/site.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
@@ -69,10 +70,11 @@ function page({ path, title, description, body = '' }) {
   return html;
 }
 
+// Same title/description the client sets (Home.tsx), from the one content file.
 const home = {
   path: '/',
-  title: 'Rohith A · Event Horizon',
-  description: 'Rohith A (alpharnog): portfolio. Tools, simulations and light, built close to the edge.',
+  title: `${site.name} · Event Horizon`,
+  description: `${site.name} (${site.handle}): portfolio. ${site.tagline}`,
 };
 writeFileSync(join(dist, 'index.html'), page({ ...home, body: heroHtml }));
 // The SPA fallback for any other URL (see vercel.json): same shell, no

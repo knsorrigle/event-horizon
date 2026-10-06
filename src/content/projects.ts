@@ -66,10 +66,10 @@ export const projects: readonly Project[] = [
     slug: 'fixedin',
     name: 'fixedin',
     oneLiner: 'Open-source CLI that tells you if a pasted error was already fixed upstream, and in which release.',
-    stack: ['CLI', 'open source', 'TODO: language'],
+    stack: ['TypeScript', 'CLI', 'open source'],
     year: null,
     orbitLabels: ['every error has a past', 'already fixed, somewhere upstream', 'which release'],
-    caseStudy: TODO_CASE,
+    caseStudy: { ...TODO_CASE, links: [{ label: 'Repository', href: 'https://github.com/knsorrigle/fixedin' }] },
     body: { surface: 'cellular', orbitRadius: 5.2, inclinationDeg: 16, nodeDeg: 20, phaseDeg: 30, radius: 0.42, brightness: 1.0 },
   },
   {
@@ -79,7 +79,7 @@ export const projects: readonly Project[] = [
     stack: ['Swift', 'Metal', 'macOS', 'open source'],
     year: null,
     orbitLabels: ['every frame, once more, in light', 'a pass after the last pass', 'metal under glass'],
-    caseStudy: TODO_CASE,
+    caseStudy: { ...TODO_CASE, links: [{ label: 'Repository', href: 'https://github.com/knsorrigle/shade-' }] },
     body: { surface: 'banded', orbitRadius: 6.6, inclinationDeg: -11, nodeDeg: 75, phaseDeg: 140, radius: 0.5, brightness: 1.15 },
   },
   {
