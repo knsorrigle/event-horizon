@@ -8,17 +8,26 @@ import {
   RedFormat,
   RepeatWrapping,
   UnsignedByteType,
+  Vector2,
+  Vector3,
   WebGLRenderer,
 } from 'three';
 import { BloomEffect, EffectComposer, EffectPass } from 'postprocessing';
 import { BlackHolePass } from './BlackHolePass';
 import { StippleEffect } from './StippleEffect';
-import { solveCamera } from './camera';
+import { orbitPosition, solveBasis } from './camera';
 import { params } from './params';
 import { rig } from '../scroll/rig';
+import { bodies, parkPosition, updateBodies } from './bodies';
+import { activeBody, hoveredBody, isInteractive, isLocked, setHovered } from './interaction';
+import { projectNdc, solveImage, type View } from './lensing';
+import { projects } from '../content/projects';
 
 // Device pixel ratios above this don't buy the raymarch anything visible.
 const MAX_DPR = 2;
+const PICK_INTERVAL_MS = 60;
+/** Apparent shadow radius scale: b_crit = (3√3 / 2) Rs. */
+const B_CRIT = (3 * Math.sqrt(3)) / 2;
 
 export interface EngineStats {
   fps: number;
@@ -34,11 +43,24 @@ export interface EngineOptions {
   reducedMotion: boolean;
 }
 
+/** Screen-space anchors for the SVG annotation layer, in CSS pixels. */
+export interface Anchors {
+  hole: { x: number; y: number; shadowPx: number; visible: boolean };
+  body: { id: number; x: number; y: number; radiusPx: number; visible: boolean };
+  /** 0..1, how present the bodies (and their annotations) are right now. */
+  bodiesVis: number;
+}
+
 export class Engine {
   readonly stats: EngineStats = { fps: 0, frameMs: 0, benchMs: null, marchWidth: 0, marchHeight: 0, maxSteps: 0 };
   /** Live camera radius in Rs and elevation above the disk plane; the HUD reads these. */
   cameraRadius: number = params.camera.distance;
   cameraElevationDeg: number = params.camera.elevationDeg;
+  readonly anchors: Anchors = {
+    hole: { x: 0, y: 0, shadowPx: 0, visible: false },
+    body: { id: 0, x: 0, y: 0, radiusPx: 0, visible: false },
+    bodiesVis: 0,
+  };
 
   private readonly renderer: WebGLRenderer;
   private readonly composer: EffectComposer;
@@ -46,12 +68,16 @@ export class Engine {
   private readonly bloom: BloomEffect;
   private readonly stipple: StippleEffect;
   private readonly reducedMotion: boolean;
+  private readonly view: View;
 
   private diskTime = 0;
+  /** Eases toward a slower clock while a body is active: easier to hit, and a nod to time dilation. */
+  private timeScale = 1;
   private shimmerClock = 0;
   private dpr = 1;
   private viewW = 1;
   private viewH = 1;
+  private lastPick = 0;
 
   // Pointer, in NDC. `target*` is raw input; the others are smoothed.
   private pointerActive = false;
@@ -62,6 +88,10 @@ export class Engine {
   private lensX = 0;
   private lensY = 0;
   private lensMass = 0;
+
+  // Annotation solve state: the last image position, reused as the next seed.
+  private solvedId = 0;
+  private readonly solved = new Vector2();
 
   private constructor(canvas: HTMLCanvasElement, blueNoise: DataTexture, opts: EngineOptions) {
     this.reducedMotion = opts.reducedMotion;
@@ -88,12 +118,24 @@ export class Engine {
     this.composer.addPass(this.hole);
     this.composer.addPass(new EffectPass(new OrthographicCamera(), this.bloom, this.stipple));
 
+    const u = this.hole.uniforms;
+    this.view = { pos: u.uCamPos.value, basis: u.uCamBasis.value, tanHalf: 0.3, aspect: 1, shift: u.uLensShift.value };
+
+    // Bodies' static look and the radial band the shader tests them in.
+    let rMin = Infinity;
+    let rMax = 0;
+    bodies.forEach((b, i) => {
+      u.uBodyLook.value[i]!.set(b.surface, b.brightness, 0, 0);
+      const a = projects[i]!.body.orbitRadius;
+      rMin = Math.min(rMin, a - b.radius);
+      rMax = Math.max(rMax, a + b.radius);
+    });
+    u.uBodyShell.value.set(rMin - 0.05, rMax + 0.05);
+
     this.resize();
     window.addEventListener('resize', this.resize);
-    if (!this.reducedMotion) {
-      window.addEventListener('pointermove', this.onPointerMove, { passive: true });
-      document.documentElement.addEventListener('pointerleave', this.onPointerLeave);
-    }
+    window.addEventListener('pointermove', this.onPointerMove, { passive: true });
+    document.documentElement.addEventListener('pointerleave', this.onPointerLeave);
   }
 
   static async create(canvas: HTMLCanvasElement, opts: EngineOptions): Promise<Engine> {
@@ -106,8 +148,9 @@ export class Engine {
     const dt = Math.min(deltaMs / 1000, 0.1);
     this.updateStats(deltaMs);
     this.applyParams(dt);
-
     this.composer.render(dt);
+    this.updatePicking();
+    this.updateAnchors();
   };
 
   /**
@@ -130,9 +173,15 @@ export class Engine {
     return ms;
   }
 
+  /** Current disk clock (bodies orbit on it too). */
+  get time(): number {
+    return this.diskTime;
+  }
+
   private applyParams(dt: number): void {
     const { raymarch, disk, sky, pointer, bloom, grain } = params;
     const u = this.hole.uniforms;
+    const motion = this.reducedMotion ? 0 : 1;
 
     // Pointer smoothing: slow for the camera drift, quicker for the lens.
     const kCam = 1 - Math.exp(-pointer.smoothing * dt);
@@ -141,28 +190,41 @@ export class Engine {
     this.camY += (this.targetY - this.camY) * kCam;
     this.lensX += (this.targetX - this.lensX) * kLens;
     this.lensY += (this.targetY - this.lensY) * kLens;
-    const massTarget = this.pointerActive ? pointer.mass : 0;
+    const massTarget = this.pointerActive ? pointer.mass * motion : 0;
     this.lensMass += (massTarget - this.lensMass) * kCam;
 
-    // The scroll narrative drives `rig`; the pointer adds a small parallax orbit.
-    const elevationDeg = rig.elevationDeg + this.camY * pointer.parallaxDeg * 0.6;
-    solveCamera(
-      {
-        distance: Math.exp(rig.logR),
-        azimuthDeg: rig.azimuthDeg + this.camX * pointer.parallaxDeg,
-        elevationDeg,
-        rollDeg: rig.rollDeg,
-      },
-      u.uCamPos.value,
-      u.uCamBasis.value,
+    const slowTarget = activeBody() && rig.park === 0 ? 0.2 : 1;
+    this.timeScale += (slowTarget - this.timeScale) * (1 - Math.exp(-4 * dt));
+    this.diskTime += dt * disk.speed * this.timeScale * (this.reducedMotion ? 0.2 : 1);
+    updateBodies(this.diskTime);
+
+    // Camera: an orbit pose driven by the narrative (+ pointer parallax),
+    // optionally blended toward a parked pose beside a body and turned to it.
+    const parallax = pointer.parallaxDeg * motion * (1 - rig.park);
+    const elevationDeg = rig.elevationDeg + this.camY * parallax * 0.6;
+    const pos = u.uCamPos.value;
+    orbitPosition(
+      { distance: Math.exp(rig.logR), azimuthDeg: rig.azimuthDeg + this.camX * parallax, elevationDeg },
+      pos,
     );
-    this.cameraRadius = u.uCamPos.value.length();
-    this.cameraElevationDeg = elevationDeg;
+    const forward = _forward.copy(pos).negate().normalize();
+    const target = rig.targetBody >= 0 ? bodies[rig.targetBody] : undefined;
+    if (target) {
+      if (rig.park > 0) parkPosition(target.center, target.radius, _park);
+      if (rig.park > 0) pos.lerp(_park, rig.park);
+      const toBody = _toBody.subVectors(target.center, pos).normalize();
+      forward.copy(pos).negate().normalize().lerp(toBody, rig.focus).normalize();
+    }
+    solveBasis(forward, rig.rollDeg, u.uCamBasis.value);
+    this.cameraRadius = pos.length();
+    this.cameraElevationDeg = (Math.asin(pos.y / this.cameraRadius) * 180) / Math.PI;
 
     const tanHalf = Math.tan((rig.fovDeg * Math.PI) / 360);
     const aspect = this.viewW / this.viewH;
     u.uTanHalfFov.value = tanHalf;
     u.uLensShift.value.set(rig.shiftX, rig.shiftY);
+    this.view.tanHalf = tanHalf;
+    this.view.aspect = aspect;
     // Cursor in the same view-plane units the shader builds rays in.
     u.uCursor.value.set(
       (this.lensX - rig.shiftX) * aspect * tanHalf,
@@ -170,13 +232,19 @@ export class Engine {
       this.lensMass,
     );
 
+    bodies.forEach((b, i) => {
+      u.uBodies.value[i]!.set(b.center.x, b.center.y, b.center.z, b.radius);
+      u.uBodyLook.value[i]!.z = b.spin;
+    });
+    u.uBodyVis.value = rig.bodies;
+    u.uHoverId.value = activeBody();
+
     // renderScale is relative to device pixels; the composer runs at CSS pixels.
     this.hole.setRenderScale(Math.min(1, raymarch.renderScale * this.dpr));
     u.uMaxSteps.value = raymarch.maxSteps;
     u.uStepScale.value = raymarch.stepScale;
     u.uLensing.value = raymarch.lensing;
 
-    this.diskTime += dt * disk.speed * (this.reducedMotion ? 0.2 : 1);
     u.uDiskTime.value = this.diskTime;
     u.uDiskBrightness.value = disk.brightness;
     u.uDiskOpacity.value = disk.opacity;
@@ -212,6 +280,61 @@ export class Engine {
     this.stats.marchWidth = this.hole.marchSize.x;
     this.stats.marchHeight = this.hole.marchSize.y;
     this.stats.maxSteps = raymarch.maxSteps;
+  }
+
+  /** Throttled async read of the body ID under the pointer. Never stalls. */
+  private updatePicking(): void {
+    const canPick = isInteractive() && !isLocked() && this.pointerActive && rig.bodies > 0.5 && rig.park === 0;
+    if (!canPick) {
+      if (hoveredBody() !== 0) setHovered(0);
+      return;
+    }
+    const now = performance.now();
+    if (now - this.lastPick < PICK_INTERVAL_MS) return;
+    this.lastPick = now;
+    void this.hole.pick(this.renderer, this.targetX, this.targetY).then((id) => {
+      if (id !== null && isInteractive()) setHovered(id);
+    });
+  }
+
+  /** Project the hole and solve the active body's lensed image position. */
+  private updateAnchors(): void {
+    const a = this.anchors;
+    a.bodiesVis = rig.bodies * (1 - rig.park);
+
+    const holeOk = projectNdc(this.view, _origin, _ndc);
+    const r = this.cameraRadius;
+    // Apparent shadow radius for a static observer: sin α = b_c sqrt(1 - 1/r) / r.
+    const sinA = Math.min(1, (B_CRIT * Math.sqrt(Math.max(0, 1 - 1 / r))) / r);
+    const tanA = sinA / Math.sqrt(Math.max(1e-6, 1 - sinA * sinA));
+    a.hole.visible = holeOk && r > 1.6;
+    a.hole.x = (_ndc.x * 0.5 + 0.5) * this.viewW;
+    a.hole.y = (0.5 - _ndc.y * 0.5) * this.viewH;
+    a.hole.shadowPx = (tanA / this.view.tanHalf) * (this.viewH / 2);
+
+    const id = activeBody();
+    const body = id > 0 ? bodies[id - 1] : undefined;
+    if (!body || a.bodiesVis < 0.05) {
+      a.body.visible = false;
+      a.body.id = 0;
+      this.solvedId = 0;
+      return;
+    }
+    // Seed: the pointer when it picked this body (so a secondary image under
+    // the cursor is honoured), else the straight-line projection; afterwards
+    // the previous solution, for temporal coherence.
+    if (this.solvedId !== id) {
+      if (hoveredBody() === id) this.solved.set(this.targetX, this.targetY);
+      else if (!projectNdc(this.view, body.center, this.solved)) this.solved.set(0, 0);
+      this.solvedId = id;
+    }
+    const miss = solveImage(this.view, body.center, this.solved, this.solved, params.raymarch.stepScale);
+    const dist = body.center.distanceTo(this.view.pos);
+    a.body.id = id;
+    a.body.visible = Number.isFinite(miss) && miss < body.radius * 1.5;
+    a.body.x = (this.solved.x * 0.5 + 0.5) * this.viewW;
+    a.body.y = (0.5 - this.solved.y * 0.5) * this.viewH;
+    a.body.radiusPx = (body.radius / dist / this.view.tanHalf) * (this.viewH / 2);
   }
 
   private updateStats(deltaMs: number): void {
@@ -253,6 +376,12 @@ export class Engine {
   }
 }
 
+const _forward = new Vector3();
+const _toBody = new Vector3();
+const _park = new Vector3();
+const _origin = new Vector3();
+const _ndc = new Vector2();
+
 async function loadBlueNoise(): Promise<DataTexture> {
   const res = await fetch('/noise/bluenoise128.bin');
   if (!res.ok) throw new Error(`blue noise: ${res.status}`);
@@ -264,4 +393,3 @@ async function loadBlueNoise(): Promise<DataTexture> {
   tex.needsUpdate = true;
   return tex;
 }
-

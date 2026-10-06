@@ -7,14 +7,39 @@ import { Verse } from '../components/Verse';
 import { buildFall } from '../scroll/fall';
 import { animateChapter } from '../scroll/chapters';
 import { getEngine } from '../engine/engineStore';
-import { onTick, prefersReducedMotion } from '../loop/ticker';
+import { lenis, onTick, prefersReducedMotion } from '../loop/ticker';
 import { resetRig } from '../scroll/rig';
+import { Annotations } from '../components/Annotations';
+import { ProjectList } from '../components/ProjectList';
+import { projects } from '../content/projects';
+import { hoveredBody, setInteractive, setLocked } from '../engine/interaction';
+import { slingshot } from '../scroll/slingshot';
+import { navigate } from '../app/router';
 
 // Section heights (vh) set each chapter's share of the scroll, and therefore
 // its share of the camera timeline: I ≈ 0–15%, II ≈ 15–57%, III ≈ 57–78%,
 // IV ≈ 78–100%, then the singularity screen.
 const sectionClass = 'relative';
 const stickyClass = 'sticky top-0 h-svh overflow-hidden';
+
+let launching = false;
+
+/** Slingshot to a project body, then route to its case study. */
+function launch(index: number): void {
+  const project = projects[index];
+  if (!project || launching) return;
+  launching = true;
+  setLocked(index + 1);
+  lenis?.stop();
+  slingshot(index, {
+    reducedMotion: prefersReducedMotion,
+    onComplete: () => {
+      launching = false;
+      lenis?.start();
+      navigate(`/work/${project.slug}`);
+    },
+  });
+}
 
 export function Home() {
   const mainRef = useRef<HTMLElement>(null);
@@ -23,6 +48,8 @@ export function Home() {
   useLayoutEffect(() => {
     const main = mainRef.current;
     if (!main) return;
+    resetRig();
+    setInteractive(true);
     const get = (id: ChapterId) => main.querySelector<HTMLElement>(`#${id}`)!;
 
     const ctx = gsap.context(() => {
@@ -61,10 +88,31 @@ export function Home() {
       }
     });
 
+    // Bodies are picked in the shader; a click on canvas space over one
+    // launches the slingshot. Links and buttons keep their own behaviour.
+    const onClick = (e: MouseEvent) => {
+      const id = hoveredBody();
+      if (id === 0 || (e.target instanceof Element && e.target.closest('a, button'))) return;
+      launch(id - 1);
+    };
+    window.addEventListener('click', onClick);
+    let lastCursor = 0;
+    const stopCursor = onTick(() => {
+      const id = hoveredBody();
+      if (id !== lastCursor) {
+        root.style.cursor = id ? 'pointer' : '';
+        lastCursor = id;
+      }
+    });
+
     return () => {
+      window.removeEventListener('click', onClick);
+      stopCursor();
+      root.style.cursor = '';
       stopTidal();
       root.style.removeProperty('--tidal');
       ctx.revert();
+      setInteractive(false);
       resetRig();
     };
   }, []);
@@ -74,6 +122,7 @@ export function Home() {
   return (
     <>
       <Frame chapterRef={chapterRef} />
+      <Annotations />
       <main id="main" ref={mainRef}>
         {/* I · Approach: the hero */}
         <section id="approach" aria-labelledby="hero-name" className={`${sectionClass} h-[160vh]`}>
@@ -98,6 +147,7 @@ export function Home() {
 
         {/* II · The Disk: projects orbit here (bodies arrive in phase 3) */}
         <section id="disk" aria-labelledby="disk-title" className={`${sectionClass} h-[460vh]`}>
+          <ProjectList onLaunch={launch} />
           <div className={stickyClass}>
             <div data-chapter-content className="grid h-full grid-rows-[1fr_auto] px-5 pt-36 pb-6 md:px-10 md:pt-44 md:pb-9">
               <div className="tidal self-start">

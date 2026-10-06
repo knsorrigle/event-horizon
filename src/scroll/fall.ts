@@ -14,7 +14,8 @@ const KEYS = {
   // II · The Disk: spiral inward 33 → 15 while orbiting ~150° around the hole.
   disk: { r: 15, azimuthDeg: 146, elevationDeg: 14, rollDeg: 0, fovDeg: 34, shiftX: 0.12, shiftY: 0, exposure: 0.8 },
   // III · Accretion: 15 → 6, tilting down to nearly edge-on; the disk dominates.
-  accretion: { r: 6, azimuthDeg: 200, elevationDeg: 1.8, rollDeg: 2, fovDeg: 50, shiftX: 0, shiftY: 0, exposure: 0.48 },
+  // Bodies fade out on the way down: the camera passes inside their orbits.
+  accretion: { r: 6, azimuthDeg: 200, elevationDeg: 1.8, rollDeg: 2, fovDeg: 50, shiftX: 0, shiftY: 0, exposure: 0.48, bodies: 0 },
   // IV · The Fall, in three beats: plunge until the photon ring frames the
   // view, slip past the photon sphere (the shadow swallows the sky), then
   // cross the horizon in the dark while the readouts diverge to ∞.

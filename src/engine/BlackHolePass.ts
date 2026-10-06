@@ -3,16 +3,20 @@ import {
   HalfFloatType,
   LinearFilter,
   Matrix3,
+  NearestFilter,
   RawShaderMaterial,
   Uniform,
+  UnsignedByteType,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
 import { CopyMaterial, Pass } from 'postprocessing';
 import vertexShader from '../shaders/fullscreen.vert';
 import fragmentShader from '../shaders/blackhole.frag';
+import { MAX_BODIES } from '../content/projects';
 
 /**
  * Traces the geodesics into a reduced-resolution HDR target, then upsamples
@@ -37,6 +41,11 @@ export class BlackHolePass extends Pass {
     uStarDensity: new Uniform(1),
     uSkyBrightness: new Uniform(1),
     uHaze: new Uniform(1),
+    uBodies: new Uniform(Array.from({ length: MAX_BODIES }, () => new Vector4())),
+    uBodyLook: new Uniform(Array.from({ length: MAX_BODIES }, () => new Vector4())),
+    uBodyVis: new Uniform(1),
+    uHoverId: new Uniform(0),
+    uBodyShell: new Uniform(new Vector2(0, 0)),
   };
 
   /** Fraction of the composer's (device-pixel) size the raymarch renders at. */
@@ -46,6 +55,8 @@ export class BlackHolePass extends Pass {
   private readonly copyMaterial = new CopyMaterial();
   private readonly target: WebGLRenderTarget;
   private readonly fullSize = new Vector2(1, 1);
+  private readonly pickBuffer = new Uint8Array(4);
+  private pickInFlight = false;
 
   constructor() {
     super('BlackHolePass');
@@ -57,12 +68,18 @@ export class BlackHolePass extends Pass {
       depthTest: false,
       depthWrite: false,
     });
+    // Two attachments: [0] HDR luminance, [1] body ID for picking (RGBA8 so
+    // it can be read back as UNSIGNED_BYTE everywhere).
     this.target = new WebGLRenderTarget(1, 1, {
       type: HalfFloatType,
       minFilter: LinearFilter,
       magFilter: LinearFilter,
       depthBuffer: false,
+      count: 2,
     });
+    const ids = this.target.textures[1]!;
+    ids.type = UnsignedByteType;
+    ids.minFilter = ids.magFilter = NearestFilter;
     this.fullscreenMaterial = this.marchMaterial;
     this.needsSwap = true;
   }
@@ -89,6 +106,25 @@ export class BlackHolePass extends Pass {
     if (w === this.target.width && h === this.target.height) return;
     this.target.setSize(w, h);
     this.uniforms.uResolution.value.set(w, h);
+  }
+
+  /**
+   * Body ID under an NDC position, read back asynchronously (PBO + fence, no
+   * pipeline stall). Resolves null if a read is already in flight; callers
+   * throttle by simply asking again later.
+   */
+  async pick(renderer: WebGLRenderer, ndcX: number, ndcY: number): Promise<number | null> {
+    if (this.pickInFlight) return null;
+    const { width, height } = this.target;
+    const x = Math.min(width - 1, Math.max(0, Math.floor((ndcX * 0.5 + 0.5) * width)));
+    const y = Math.min(height - 1, Math.max(0, Math.floor((ndcY * 0.5 + 0.5) * height)));
+    this.pickInFlight = true;
+    try {
+      await renderer.readRenderTargetPixelsAsync(this.target, x, y, 1, 1, this.pickBuffer, undefined, 1);
+      return this.pickBuffer[0] ?? 0;
+    } finally {
+      this.pickInFlight = false;
+    }
   }
 
   setRenderScale(scale: number): void {

@@ -15,6 +15,8 @@ precision highp int;
 
 in vec2 vUv;
 layout(location = 0) out vec4 fragColor;
+// Picking: R = 1-based ID of the first visible body along the ray, / 255.
+layout(location = 1) out vec4 pickColor;
 
 uniform vec2 uResolution;
 uniform vec3 uCamPos;
@@ -32,6 +34,13 @@ uniform float uDiskBrightness;
 uniform float uDiskOpacity;
 uniform float uBeaming;        // exponent on the redshift factor g (4 = bolometric)
 uniform float uTurbulence;
+
+#define MAX_BODIES 6
+uniform vec4 uBodies[MAX_BODIES];    // xyz centre, w radius (w = 0: inactive)
+uniform vec4 uBodyLook[MAX_BODIES];  // x surface id, y brightness, z spin
+uniform float uBodyVis;              // 0..1, fades bodies with the narrative
+uniform float uHoverId;              // 1-based, 0 = none
+uniform vec2 uBodyShell;             // radial band [min, max] that holds every body
 
 uniform float uStarDensity;
 uniform float uSkyBrightness;
@@ -95,6 +104,83 @@ vec2 shadeDisk(vec3 hit, float r, float lambda) {
   float lum = flux * beamed * (0.25 + 1.35 * dens * dens) * edge * uDiskBrightness;
   float alpha = clamp(uDiskOpacity * (0.35 + 0.65 * dens) * edge, 0.0, 1.0);
   return vec2(lum, alpha);
+}
+
+// -------------------------------------------------------------- bodies ----
+
+// Earliest intersection of segment a→b with a sphere, as a fraction of the
+// segment (or 2.0 for a miss).
+float segmentSphere(vec3 a, vec3 b, vec4 sphere) {
+  vec3 d = b - a;
+  vec3 m = a - sphere.xyz;
+  float A = dot(d, d);
+  float B = dot(m, d);
+  float C = dot(m, m) - sphere.w * sphere.w;
+  if (C > 0.0 && B > 0.0) return 2.0;
+  float disc = B * B - A * C;
+  if (disc < 0.0) return 2.0;
+  float t = (-B - sqrt(disc)) / A;
+  return (t >= 0.0 && t <= 1.0) ? t : 2.0;
+}
+
+float cellular3(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  float d1 = 8.0;
+  for (int z = -1; z <= 1; z++)
+  for (int y = -1; y <= 1; y++)
+  for (int x = -1; x <= 1; x++) {
+    vec3 g = vec3(x, y, z);
+    vec3 o = hash33(i + g);
+    d1 = min(d1, length(g + o - f));
+  }
+  return d1;
+}
+
+// Six surfaces, told apart by pattern and grain rather than colour.
+float bodyPattern(int surface, vec3 q) {
+  float lat = q.y;
+  float lon = atan(q.z, q.x);
+  if (surface == 0) {        // banded: gas-giant belts with turbulent edges
+    float w = vnoise3(q * 3.0) * 2.4;
+    return 0.45 + 0.55 * smoothstep(-0.3, 0.6, sin(lat * 15.0 + w));
+  } else if (surface == 1) { // cellular: cratered, cell-walled
+    float c = cellular3(q * 3.2);
+    return 0.25 + 0.75 * smoothstep(0.15, 0.55, c);
+  } else if (surface == 2) { // filament: ridged threads, neurons in the dark
+    float n = 1.0 - abs(2.0 * vnoise3(q * 5.0) - 1.0);
+    float m = 1.0 - abs(2.0 * vnoise3(q * 11.0 + 7.0) - 1.0);
+    return 0.12 + 0.95 * pow(n, 6.0) + 0.45 * pow(m, 8.0);
+  } else if (surface == 3) { // vortex: a spiral wound into the pole
+    float s = sin(lon * 2.0 + log(max(1.0 - abs(lat), 1e-3)) * 7.0);
+    return 0.3 + 0.7 * smoothstep(-0.2, 0.9, s) * (0.6 + 0.4 * abs(lat));
+  } else if (surface == 4) { // crescent: smooth and quiet, all in the light
+    return 0.85 + 0.15 * vnoise3(q * 9.0);
+  }
+  // waves: concentric ripples around one axis, like a waveform made solid
+  float ang = acos(clamp(q.x, -1.0, 1.0));
+  return 0.35 + 0.65 * smoothstep(0.1, 0.9, 0.5 + 0.5 * sin(ang * 22.0));
+}
+
+float shadeBody(int i, vec3 hit, vec3 rayDir) {
+  vec4 sphere = uBodies[i];
+  vec4 look = uBodyLook[i];
+  vec3 n = normalize(hit - sphere.xyz);
+  float cs = cos(look.z);
+  float sn = sin(look.z);
+  vec3 q = vec3(cs * n.x - sn * n.z, n.y, sn * n.x + cs * n.z);
+  int surface = int(look.x + 0.5);
+
+  // Lit by the inner disk: a terminator facing the hole gives each body a
+  // crescent and real volume. The crescent surface gets a harder edge.
+  vec3 toHole = normalize(-sphere.xyz);
+  float ndl = dot(n, toHole);
+  float lit = surface == 4 ? smoothstep(-0.05, 0.35, ndl) : 0.22 + 0.78 * smoothstep(-0.35, 0.8, ndl);
+  // A thin grainy rim so dark limbs still separate from the void.
+  float rim = pow(1.0 - abs(dot(n, -rayDir)), 3.0) * 0.35;
+
+  float hover = abs(uHoverId - float(i + 1)) < 0.5 ? 1.75 : 1.0;
+  return (bodyPattern(surface, q) * lit + rim) * look.y * hover * 0.85;
 }
 
 // ----------------------------------------------------------------- sky ----
@@ -172,6 +258,8 @@ void main() {
 
   float lum = 0.0;
   float trans = 1.0;
+  int pick = 0;
+  float bodySafe = 0.0;
   bool captured = false;
   bool escaped = false;
 
@@ -192,17 +280,63 @@ void main() {
     acc = -k * pos / (r2 * r2 * sqrt(r2));
     vel += 0.5 * dt * acc;
 
-    // Thin disk: the ray crossed the equatorial plane during this step.
-    if (prev.y * pos.y < 0.0) {
-      vec3 hit = mix(prev, pos, prev.y / (prev.y - pos.y));
-      float rh = length(hit.xz);
-      if (rh > DISK_IN && rh < DISK_OUT) {
-        vec2 d = shadeDisk(hit, rh, lambda);
-        lum += trans * d.x;
-        trans *= 1.0 - d.y;
-        if (trans < 0.01) break;
+    // Events along this step's chord, resolved in path order: the thin disk
+    // (equatorial-plane crossing) and the project bodies (ray–sphere).
+    float tDisk = prev.y * pos.y < 0.0 ? prev.y / (prev.y - pos.y) : 2.0;
+
+    float tBody = 2.0;
+    int hitBody = -1;
+    if (uBodyVis > 0.001) {
+      float seg = length(pos - prev);
+      bodySafe -= seg;
+      // Sphere-tracing style skip: no body surface lies within `bodySafe` of
+      // where it was last measured, and the path has travelled less than that
+      // since, so this chord cannot reach any body. Exact, not approximate.
+      if (bodySafe <= 0.0) {
+        float rEnd = sqrt(r2);
+        // Outside the bodies' radial band entirely: skip until we re-enter it.
+        float bandGap = max(uBodyShell.x - max(r, rEnd), min(r, rEnd) - uBodyShell.y);
+        if (bandGap > seg) {
+          bodySafe = bandGap - seg;
+        } else {
+          float nearest = 1e9;
+          for (int b = 0; b < MAX_BODIES; b++) {
+            if (uBodies[b].w <= 0.0) continue;
+            nearest = min(nearest, length(prev - uBodies[b].xyz) - uBodies[b].w);
+          }
+          if (nearest > seg) {
+            bodySafe = nearest - seg;
+          } else {
+            for (int b = 0; b < MAX_BODIES; b++) {
+              if (uBodies[b].w <= 0.0) continue;
+              float t = segmentSphere(prev, pos, uBodies[b]);
+              if (t < tBody) { tBody = t; hitBody = b; }
+            }
+          }
+        }
       }
     }
+
+    for (int ev = 0; ev < 2; ev++) {
+      bool diskFirst = tDisk <= tBody;
+      float t = (ev == 0) == diskFirst ? tDisk : tBody;
+      if (t > 1.0) continue;
+      vec3 hit = mix(prev, pos, t);
+      if ((ev == 0) == diskFirst) {
+        float rh = length(hit.xz);
+        if (rh > DISK_IN && rh < DISK_OUT) {
+          vec2 d = shadeDisk(hit, rh, lambda);
+          lum += trans * d.x;
+          trans *= 1.0 - d.y;
+        }
+      } else {
+        // Bodies are opaque emitters; while fading out they turn transparent.
+        lum += trans * shadeBody(hitBody, hit, normalize(vel)) * uBodyVis;
+        if (pick == 0 && trans > 0.25 && uBodyVis > 0.5) pick = hitBody + 1;
+        trans *= 1.0 - uBodyVis;
+      }
+    }
+    if (trans < 0.01) break;
 
     if (r2 < 1.0) { captured = true; break; }
     if (r2 > escapeR2 && dot(pos, vel) > 0.0) { escaped = true; break; }
@@ -214,4 +348,5 @@ void main() {
   }
 
   fragColor = vec4(vec3(lum * observerBoost), 1.0);
+  pickColor = vec4(float(pick) / 255.0, 0.0, 0.0, 1.0);
 }

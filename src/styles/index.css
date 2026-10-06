@@ -174,6 +174,39 @@
   }
 }
 
+/* ------------------------------------------------------ annotations --- */
+
+/* Hairlines only. Hierarchy by brightness and dash, never colour. */
+.annotations .ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.75;
+  opacity: 0.7;
+}
+.annotations .ring--dashed {
+  stroke-dasharray: 2 7;
+  opacity: 0.55;
+}
+.annotations .ring--sparse {
+  stroke-dasharray: 1 11;
+  opacity: 0.4;
+}
+.annotations .ring-text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  fill: var(--color-ink-3);
+}
+.annotations .ring-text--body {
+  font-family: var(--font-label);
+  font-weight: 800;
+  font-stretch: 125%;
+  font-size: 8px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  fill: var(--color-ink-2);
+}
+
 /* -------------------------------------------------- view transitions --- */
 
 ::view-transition-old(root),
