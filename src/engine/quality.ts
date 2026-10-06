@@ -100,6 +100,7 @@ export class QualityController {
 
 /** Where to start: phones and low-core machines begin a few rungs down. */
 export function initialLevel(): number {
+  if (new URLSearchParams(window.location.search).has('capture')) return 0;
   const coarse = window.matchMedia('(pointer: coarse)').matches;
   const cores = navigator.hardwareConcurrency || 4;
   if (coarse) return 2;

@@ -513,6 +513,13 @@
   letter-spacing: 0.03em;
 }
 
+/* ?capture=still: the scene alone, for the fallback stills. */
+html[data-capture='still'] main,
+html[data-capture='still'] .frame,
+html[data-capture='still'] .annotations {
+  visibility: hidden;
+}
+
 /* ?debug */
 .debug-panel {
   position: fixed;

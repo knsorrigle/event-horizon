@@ -75,6 +75,9 @@ const home = {
   description: 'Rohith A (alpharnog): portfolio. Tools, simulations and light, built close to the edge.',
 };
 writeFileSync(join(dist, 'index.html'), page({ ...home, body: heroHtml }));
+// The SPA fallback for any other URL (see vercel.json): same shell, no
+// prerendered home hero, so an unknown path never flashes the wrong page.
+writeFileSync(join(dist, 'app.html'), page({ ...home, path: '/' }));
 
 for (const p of projects) {
   const path = `/work/${p.slug}`;

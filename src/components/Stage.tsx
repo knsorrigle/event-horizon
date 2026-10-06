@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { onTick, prefersReducedMotion } from '../loop/ticker';
 import { setEngine, setRenderMode, useRenderMode } from '../engine/engineStore';
-import { fallbackReason } from '../engine/capability';
+import { captureMode, fallbackReason } from '../engine/capability';
 import { useRoute } from '../app/router';
 import { IntroRing } from './IntroRing';
 
@@ -16,7 +16,7 @@ export function Stage() {
   const mode = useRenderMode();
   const route = useRoute();
   // The intro ring only ever plays on a first load of the home page.
-  const [intro, setIntro] = useState(() => route.name === 'home');
+  const [intro, setIntro] = useState(() => route.name === 'home' && !captureMode);
   const endIntro = useCallback(() => setIntro(false), []);
 
   useEffect(() => {
@@ -57,7 +57,8 @@ export function Stage() {
           setRenderMode('fallback');
         };
         setRenderMode('webgl');
-        gsap.to(canvas, { opacity: 1, duration: prefersReducedMotion ? 0 : 1.4, ease: 'power2.out' });
+        gsap.to(canvas, { opacity: 1, duration: prefersReducedMotion || captureMode ? 0 : 1.4, ease: 'power2.out' });
+        if (captureMode) document.documentElement.dataset.capture = captureMode;
 
         // Dev tooling is behind a static env check, so production builds drop
         // the import (and Tweakpane) entirely.

@@ -7,7 +7,18 @@ interface ConnectionInfo {
 
 export type FallbackReason = 'forced' | 'save-data' | 'no-webgl2' | 'software-renderer' | 'no-float-targets';
 
+/**
+ * ?capture=og | still: used by scripts/capture.mjs to regenerate the OG image
+ * and fallback stills from the live renderer. Forces WebGL even on a software
+ * rasteriser (headless Chrome), pins quality, and skips the intro.
+ */
+export const captureMode: 'og' | 'still' | null = (() => {
+  const v = new URLSearchParams(window.location.search).get('capture');
+  return v === 'og' || v === 'still' ? v : null;
+})();
+
 export function fallbackReason(): FallbackReason | null {
+  if (captureMode) return null;
   if (new URLSearchParams(window.location.search).has('fallback')) return 'forced';
 
   const conn = (navigator as Navigator & { connection?: ConnectionInfo }).connection;

@@ -7,3 +7,4 @@ dist-ssr
 .vercel
 # Melodrama (ITF FFL) must not be redistributed via a repository; fetched by scripts/fetch-fonts.mjs
 public/fonts/melodrama
+.env*

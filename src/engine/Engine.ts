@@ -23,6 +23,7 @@ import { activeBody, hoveredBody, isInteractive, isLocked, setHovered } from './
 import { projectNdc, solveImage, type View } from './lensing';
 import { projects } from '../content/projects';
 import { QualityController, initialLevel } from './quality';
+import { captureMode } from './capability';
 
 // Device pixel ratios above this don't buy the raymarch anything visible.
 const MAX_DPR = 2;
@@ -177,7 +178,8 @@ export class Engine {
   /** Advance and render one frame. Driven by the shared GSAP ticker. */
   frame = (_time: number, deltaMs: number): void => {
     if (this.paused) return;
-    this.quality.update(deltaMs, performance.now());
+    // Captures pin the top rung: a software renderer must not trigger a downgrade.
+    if (!captureMode) this.quality.update(deltaMs, performance.now());
     if (this.quality.wantsFallback && this.onFallback) {
       const cb = this.onFallback;
       this.onFallback = null;
@@ -234,7 +236,7 @@ export class Engine {
     this.camY += (this.targetY - this.camY) * kCam;
     this.lensX += (this.targetX - this.lensX) * kLens;
     this.lensY += (this.targetY - this.lensY) * kLens;
-    const massTarget = this.pointerActive ? pointer.mass * motion : 0;
+    const massTarget = this.pointerActive && !captureMode ? pointer.mass * motion : 0;
     this.lensMass += (massTarget - this.lensMass) * kCam;
 
     const slowTarget = activeBody() && rig.park === 0 ? 0.2 : 1;
@@ -244,7 +246,7 @@ export class Engine {
 
     // Camera: an orbit pose driven by the narrative (+ pointer parallax),
     // optionally blended toward a parked pose beside a body and turned to it.
-    const parallax = pointer.parallaxDeg * motion * (1 - rig.park);
+    const parallax = captureMode ? 0 : pointer.parallaxDeg * motion * (1 - rig.park);
     const elevationDeg = rig.elevationDeg + this.camY * parallax * 0.6;
     const pos = u.uCamPos.value;
     orbitPosition(
