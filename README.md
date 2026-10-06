@@ -176,18 +176,26 @@ Missing content is written as `null` / `TODO`. In dev it shows as visible `[TODO
 production it renders as "—", and empty chapters, plates and contact rows are hidden. Stack tags
 starting with `TODO` are filtered out in production.
 
-## Content still to fill in
+## Content status
 
-- [ ] **Tagline**: `src/content/site.ts` → `site.tagline` (currently a placeholder)
-- [ ] **Bio**: `src/content/site.ts` → `chapters.accretion.bio`
-- [ ] **Contact**: `src/content/site.ts` → `contact` (email, GitHub, LinkedIn, résumé PDF in `/public`)
-- [ ] **Each project** in `src/content/projects.ts`:
-  - `year`, and the `TODO` stack tags
-  - `caseStudy.role`, `problem`, `hardPart`, `result`
-  - `media` and `links`
+**Done**
+- [x] Tagline, bio and contact (email and GitHub; no LinkedIn or résumé, by choice), all in
+  `src/content/site.ts`
+- [x] Year, role and stack for all six projects
+- [x] Repository links for fixedin and metalshade
+- [x] OG image and fallback stills re-rendered with the real tagline
+
+**Still open** (all optional: missing fields are simply hidden on the live site)
+- [ ] **Media** for every project: `caseStudy.media` in `src/content/projects.ts`
+- [ ] **Missing case-study chapters**:
+  - metalshade: `hardPart`
+  - black-hole-render: `problem`, `hardPart`, `result`
+  - fixedin, fly-connectome, earth-jukebox: `result`
+- [ ] **Links** for fly-connectome, black-hole-render, align and earth-jukebox, if any exist
+- [ ] **fly-connectome's language and simulator** in its `stack`
 - [ ] Review the drafted copy: verse blocks (`site.ts`), orbit labels (`projects.ts`), the
   singularity headline and note
-- [ ] After the tagline changes: `npm run build && npm run preview`, then `npm run capture` to
+- [ ] If the tagline changes again: `npm run build && npm run preview`, then `npm run capture` to
   re-render the OG image and fallback stills, and commit them
 
 ## Project layout
