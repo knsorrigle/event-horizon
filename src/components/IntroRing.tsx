@@ -8,7 +8,7 @@ import { useRenderMode } from '../engine/engineStore';
 const B_CRIT = (3 * Math.sqrt(3)) / 2;
 
 /** Where the hero's shadow will appear, and how big, from the hero camera. */
-function heroShadow(w: number, h: number) {
+export function heroShadow(w: number, h: number) {
   const c = params.camera;
   const r = c.distance;
   const sinA = (B_CRIT * Math.sqrt(1 - 1 / r)) / r;

@@ -19,6 +19,7 @@ import { projects } from '../content/projects';
 import { hoveredBody, setHovered, setInteractive, setLocked } from '../engine/interaction';
 import { setDeparture, slingshot } from '../scroll/slingshot';
 import { navigate } from '../app/router';
+import { audio } from '../audio';
 import { useDocumentMeta } from '../app/meta';
 
 // Section heights (vh) set each chapter's share of the scroll, and therefore
@@ -37,6 +38,7 @@ function launch(index: number): void {
   // Remember the exact orbit we leave from, for the return trip.
   setDeparture({ rig: { ...rig }, scrollY: lenis ? lenis.scroll : window.scrollY });
   setLocked(index + 1);
+  if (!prefersReducedMotion) audio.slingshot(index + 1);
   lenis?.stop();
   slingshot(index, {
     reducedMotion: prefersReducedMotion,

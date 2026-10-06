@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { Link, cameFromOrbit, navigate } from '../app/router';
 import { useDocumentMeta } from '../app/meta';
+import { audio } from '../audio';
 import { projects, visibleStack, type Project } from '../content/projects';
 import { READING, heroRig, parkRig, rig } from '../scroll/rig';
 import { getDeparture, returnToOrbit } from '../scroll/slingshot';
@@ -73,6 +74,7 @@ export function Work({ slug }: { slug: string }) {
     if (leaving) return;
     leaving = true;
     const departure = getDeparture();
+    audio.returnToOrbit(index + 1);
     lenis?.stop();
     // Clear the page so the flight back is visible, then reverse the slingshot.
     if (mainRef.current) gsap.to(mainRef.current, { autoAlpha: 0, duration: prefersReducedMotion ? 0 : 0.35, ease: 'power1.in' });

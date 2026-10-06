@@ -6,6 +6,7 @@
 import gsap from 'gsap';
 import { lenis, onTick, prefersReducedMotion } from '../loop/ticker';
 import { rig } from './rig';
+import { audio } from '../audio';
 
 /** Overscroll needed to erupt, in "pressure" units. */
 const THRESHOLD = 1;
@@ -75,6 +76,7 @@ export function setupWhiteHole(opts: { main: HTMLElement; onEject: () => void })
   function erupt() {
     erupting = true;
     pressure = 0;
+    audio.whiteHole();
 
     if (prefersReducedMotion || !lenis) {
       // No eruption, no flight: a brief crossfade and you're back at the top.

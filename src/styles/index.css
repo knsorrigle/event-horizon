@@ -519,10 +519,70 @@
   letter-spacing: 0.03em;
 }
 
+/* ------------------------------------------------------------ sound --- */
+
+/* Waveform when on, a flat line when off. Brightness, not colour, for state. */
+.sound-toggle rect {
+  fill: var(--color-ink-3);
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: scaleY(0.12);
+  transition:
+    transform 0.4s ease,
+    fill 0.3s ease;
+}
+.sound-toggle__flat {
+  stroke: var(--color-ink-2);
+  stroke-width: 1;
+  transition: opacity 0.3s ease;
+}
+.sound-toggle.is-on .sound-toggle__flat,
+.sound-toggle.is-armed .sound-toggle__flat {
+  opacity: 0;
+}
+.sound-toggle:hover rect,
+.sound-toggle:focus-visible rect {
+  fill: var(--color-ink-1);
+}
+.sound-toggle.is-on rect,
+.sound-toggle.is-armed rect {
+  fill: var(--color-ink-2);
+  transform: scaleY(0.55);
+}
+.sound-toggle.is-on rect {
+  animation: sound-wave 1.15s ease-in-out infinite alternate;
+}
+@keyframes sound-wave {
+  from {
+    transform: scaleY(0.18);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-toggle.is-on rect {
+    animation: none;
+  }
+}
+
+.sound-gate button {
+  transition:
+    color 0.3s ease,
+    letter-spacing 0.3s ease;
+}
+.sound-gate button:hover,
+.sound-gate button:focus-visible {
+  color: var(--color-ink-1);
+  letter-spacing: 0.3em;
+}
+
 /* ?capture=still: the scene alone, for the fallback stills. */
 html[data-capture='still'] main,
 html[data-capture='still'] .frame,
-html[data-capture='still'] .annotations {
+html[data-capture='still'] .annotations,
+html[data-capture] .sound-toggle,
+html[data-capture] .sound-gate {
   visibility: hidden;
 }
 

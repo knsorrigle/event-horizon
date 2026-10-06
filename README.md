@@ -100,6 +100,42 @@ and cards attach to what you actually see.
   LCP is 0.8 s, because the hero is prerendered into the HTML. Lighthouse accessibility, best
   practices and SEO are all 100.
 
+## Sound
+
+Optional, and never automatic. On first visit, two choices appear under the intro ring:
+**Enter with sound** or **Enter in silence**. The click is the gesture that unlocks audio, and the
+choice is remembered. Returning visitors who chose sound hear it start on their first click of the
+visit. The toggle at the top centre (a waveform when on, a flat line when off) switches it on any
+page.
+
+Everything is **synthesised live with the Web Audio API**. There are no recordings, so the layer is
+copyright-free by construction (see [CREDITS.md](CREDITS.md)). The engine (`src/audio/soundEngine.ts`,
+about 5 KB gzipped) only downloads after someone opts in, so it never touches the initial load.
+
+**Driven by the simulation**, from the same frame loop as the visuals:
+- **The bed:** a sub drone (with a harmonic layer so the bass reads on laptop speakers), slow
+  detuned pads in D Aeolian, tape hiss and a distant radio band, all under a long reverb.
+- **Depth:** as the camera falls, the bed drops in pitch (a fraction of the real gravitational
+  redshift), the lowpass closes from 7.5 kHz to 320 Hz, and the reverb grows.
+- **Time dilation:** a soft bell whose interval stretches by 1/√(1 − 1/r), the HUD's `t_dilation`.
+  Near the horizon, time audibly slows.
+- **The crossing:** at the horizon everything cuts to true silence. After the black beat, one soft
+  sustained tone fades in for the contact screen.
+- **Scroll:** a filtered-noise rush follows Lenis scroll velocity (silent at rest), with a low
+  gravitational rumble that only appears with depth.
+- **Interaction:**
+  - each project body has its own note (together a Dm11 chord), panned to where its image sits
+  - a faint per-body hum Doppler-shifts as bodies orbit toward or away from you
+  - the slingshot is a swept whoosh peaking at the gravity-assist apex, landing with a soft impact;
+    "back to orbit" plays it reversed
+  - the white hole erupts in light
+  - links tick almost subliminally
+- **Behaviour:** quiet by default (about −25 dBFS), limited, and click-free. Audio is suspended while
+  the tab is hidden. Reduced motion keeps the bed and drops the scroll rush and most UI sounds.
+
+Every level, filter range and the depth curve live in `src/audio/params.ts`. In dev, Tweakpane's
+**audio** folder tunes them live, with master meters and buttons that fire each one-shot sound.
+
 ## Stack (and why each dependency is here)
 
 | Dependency | Why |
@@ -113,6 +149,10 @@ and cards attach to what you actually see.
 | `vite-plugin-glsl` (dev) | GLSL in `.frag`/`.vert` files with `#include` chunks, minified in production. |
 | `tweakpane` + `@tweakpane/core` (dev) | Live tuning panel for every uniform, dev-only. It's stripped from production builds (`@tweakpane/core` is only its type declarations). |
 | `vite`, `@vitejs/plugin-react`, `typescript`, `@types/*` (dev) | Build and strict typing. |
+
+Sound uses the browser's **Web Audio API** directly; Tone.js was considered and skipped. The graph
+is a handful of oscillators, noise buffers, filters, one reverb and a limiter, all of which Web Audio
+does natively with sample-accurate ramps, so a ~50 KB library wouldn't earn its place.
 
 The router is a hand-rolled History API router (two routes) with View Transitions. Fonts are
 self-hosted: **Melodrama** (display), **Archivo** (labels), **IBM Plex Mono** (data).
@@ -209,6 +249,8 @@ src/
   components/       Stage, HeroSection, Frame, Readouts, Annotations, Panel, Singularity, …
   routes/           Home, Work (case studies)
   content/          site.ts, projects.ts (all copy and data)
+  audio/            index (facade: choice, unlock, feed), soundEngine (Web Audio graph; lazy),
+                    voices (synthesised sources), params (the mix)
   app/              App, router, meta
   dev/              devtools (Tweakpane; dev only)
 scripts/            fetch-fonts, gen-bluenoise, postbuild, capture
