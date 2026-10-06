@@ -126,6 +126,11 @@ export const projects: readonly Project[] = [
 
 export const MAX_BODIES = 6;
 
+/** Stack tags to show: TODO placeholders are visible in dev, never in production. */
+export function visibleStack(p: Project): readonly string[] {
+  return import.meta.env.DEV ? p.stack : p.stack.filter((tag) => !tag.startsWith('TODO'));
+}
+
 export function projectBySlug(slug: string): Project | undefined {
   return projects.find((p) => p.slug === slug);
 }

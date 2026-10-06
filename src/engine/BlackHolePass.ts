@@ -52,6 +52,8 @@ export class BlackHolePass extends Pass {
 
   /** Fraction of the composer's (device-pixel) size the raymarch renders at. */
   renderScale = 0.5;
+  /** When set, the frame is known to be black: clear instead of tracing. */
+  skip = false;
 
   private readonly marchMaterial: RawShaderMaterial;
   private readonly upsampleMaterial: RawShaderMaterial;
@@ -107,7 +109,22 @@ export class BlackHolePass extends Pass {
     return this.uniforms.uResolution.value;
   }
 
+  /** Pre-compile both programs without blocking (KHR_parallel_shader_compile). */
+  async compile(renderer: WebGLRenderer): Promise<void> {
+    for (const material of [this.marchMaterial, this.upsampleMaterial]) {
+      this.fullscreenMaterial = material;
+      await renderer.compileAsync(this.scene, this.camera);
+    }
+    this.fullscreenMaterial = this.marchMaterial;
+  }
+
   override render(renderer: WebGLRenderer, _input: WebGLRenderTarget | null, output: WebGLRenderTarget | null): void {
+    if (this.skip) {
+      renderer.setRenderTarget(this.renderToScreen ? null : output);
+      renderer.setClearColor(0x000000, 1);
+      renderer.clear(true, false, false);
+      return;
+    }
     this.fullscreenMaterial = this.marchMaterial;
     renderer.setRenderTarget(this.target);
     renderer.render(this.scene, this.camera);

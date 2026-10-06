@@ -15,13 +15,14 @@ import {
 import { BloomEffect, EffectComposer, EffectPass } from 'postprocessing';
 import { BlackHolePass } from './BlackHolePass';
 import { StippleEffect } from './StippleEffect';
-import { orbitPosition, solveBasis } from './camera';
+import { framing, orbitPosition, solveBasis } from './camera';
 import { params } from './params';
 import { rig } from '../scroll/rig';
 import { bodies, parkPosition, updateBodies } from './bodies';
 import { activeBody, hoveredBody, isInteractive, isLocked, setHovered } from './interaction';
 import { projectNdc, solveImage, type View } from './lensing';
 import { projects } from '../content/projects';
+import { QualityController, initialLevel } from './quality';
 
 // Device pixel ratios above this don't buy the raymarch anything visible.
 const MAX_DPR = 2;
@@ -37,6 +38,10 @@ export interface EngineStats {
   marchWidth: number;
   marchHeight: number;
   maxSteps: number;
+  /** Adaptive quality rung (0 = best). */
+  qualityLevel: number;
+  /** Raymarch resolution as a fraction of device pixels, after quality + reading mode. */
+  renderScale: number;
 }
 
 export interface EngineOptions {
@@ -52,7 +57,11 @@ export interface Anchors {
 }
 
 export class Engine {
-  readonly stats: EngineStats = { fps: 0, frameMs: 0, benchMs: null, marchWidth: 0, marchHeight: 0, maxSteps: 0 };
+  readonly stats: EngineStats = { fps: 0, frameMs: 0, benchMs: null, marchWidth: 0, marchHeight: 0, maxSteps: 0, qualityLevel: 0, renderScale: 0.5 };
+  readonly quality = new QualityController(initialLevel());
+  /** Called once if the device can't hold even the lowest quality. */
+  onFallback: (() => void) | null = null;
+  private paused = false;
   /** Live camera radius in Rs and elevation above the disk plane; the HUD reads these. */
   cameraRadius: number = params.camera.distance;
   cameraElevationDeg: number = params.camera.elevationDeg;
@@ -81,6 +90,8 @@ export class Engine {
 
   // Pointer, in NDC. `target*` is raw input; the others are smoothed.
   private pointerActive = false;
+  /** Touch devices select bodies by tapping; hover logic must leave that alone. */
+  private touchInput = false;
   private targetX = 0;
   private targetY = 0;
   private camX = 0;
@@ -134,17 +145,45 @@ export class Engine {
 
     this.resize();
     window.addEventListener('resize', this.resize);
+    document.addEventListener('visibilitychange', this.onVisibility);
     window.addEventListener('pointermove', this.onPointerMove, { passive: true });
+    window.addEventListener('pointerdown', this.onPointerDown, { passive: true });
     document.documentElement.addEventListener('pointerleave', this.onPointerLeave);
   }
 
   static async create(canvas: HTMLCanvasElement, opts: EngineOptions): Promise<Engine> {
     const blueNoise = await loadBlueNoise();
-    return new Engine(canvas, blueNoise, opts);
+    const engine = new Engine(canvas, blueNoise, opts);
+    await engine.warmup();
+    return engine;
+  }
+
+  /**
+   * Compile the heavy shaders before the first visible frame. compileAsync
+   * uses KHR_parallel_shader_compile where available, so the geodesic shader
+   * builds off the main thread's critical path while the intro ring draws.
+   */
+  private async warmup(): Promise<void> {
+    try {
+      await this.hole.compile(this.renderer);
+    } catch {
+      // Older drivers: fall through and compile synchronously on first render.
+    }
+    this.applyParams(0);
+    this.composer.render(0);
+    this.quality.settle(30);
   }
 
   /** Advance and render one frame. Driven by the shared GSAP ticker. */
   frame = (_time: number, deltaMs: number): void => {
+    if (this.paused) return;
+    this.quality.update(deltaMs, performance.now());
+    if (this.quality.wantsFallback && this.onFallback) {
+      const cb = this.onFallback;
+      this.onFallback = null;
+      cb();
+      return;
+    }
     const dt = Math.min(deltaMs / 1000, 0.1);
     this.updateStats(deltaMs);
     this.applyParams(dt);
@@ -224,16 +263,17 @@ export class Engine {
     this.cameraRadius = pos.length();
     this.cameraElevationDeg = (Math.asin(pos.y / this.cameraRadius) * 180) / Math.PI;
 
-    const tanHalf = Math.tan((rig.fovDeg * Math.PI) / 360);
     const aspect = this.viewW / this.viewH;
+    const frame = framing(rig.fovDeg, rig.shiftX, rig.shiftY, aspect);
+    const tanHalf = frame.tanHalf;
     u.uTanHalfFov.value = tanHalf;
-    u.uLensShift.value.set(rig.shiftX, rig.shiftY);
+    u.uLensShift.value.set(frame.shiftX, frame.shiftY);
     this.view.tanHalf = tanHalf;
     this.view.aspect = aspect;
     // Cursor in the same view-plane units the shader builds rays in.
     u.uCursor.value.set(
-      (this.lensX - rig.shiftX) * aspect * tanHalf,
-      (this.lensY - rig.shiftY) * tanHalf,
+      (this.lensX - frame.shiftX) * aspect * tanHalf,
+      (this.lensY - frame.shiftY) * tanHalf,
       this.lensMass,
     );
 
@@ -247,8 +287,18 @@ export class Engine {
     u.uHoverId.value = activeBody();
 
     // renderScale is relative to device pixels; the composer runs at CSS pixels.
-    this.hole.setRenderScale(Math.min(1, raymarch.renderScale * this.dpr));
-    u.uMaxSteps.value = raymarch.maxSteps;
+    // Adaptive quality sets the rung; params.raymarch scales it (dev tuning,
+    // 0.5 = baseline). Reading mode halves it again: that view is defocused.
+    // Quantised to 0.05 so tweens don't reallocate the target every frame.
+    const q = this.quality.current;
+    const reading = 1 - 0.5 * Math.min(1, rig.blur);
+    const scale = Math.round(q.renderScale * (raymarch.renderScale / 0.5) * reading * 20) / 20;
+    this.stats.renderScale = scale;
+    this.stats.qualityLevel = this.quality.level;
+    this.hole.setRenderScale(Math.min(1, Math.max(0.1, scale) * this.dpr));
+    u.uMaxSteps.value = Math.min(raymarch.maxSteps, q.maxSteps);
+    // Fully black (the singularity): skip the geodesics altogether.
+    this.hole.skip = rig.fade > 0.999 && rig.flare < 0.001;
     u.uStepScale.value = raymarch.stepScale;
     u.uLensing.value = raymarch.lensing;
 
@@ -289,11 +339,28 @@ export class Engine {
 
     this.stats.marchWidth = this.hole.marchSize.x;
     this.stats.marchHeight = this.hole.marchSize.y;
-    this.stats.maxSteps = raymarch.maxSteps;
+    this.stats.maxSteps = u.uMaxSteps.value;
+  }
+
+  /**
+   * One-off pick at a screen point (CSS px), for taps. Async and stall-free;
+   * retries briefly if a hover pick is already in flight.
+   */
+  async pickAt(clientX: number, clientY: number): Promise<number> {
+    if (rig.bodies < 0.5 || rig.park > 0) return 0;
+    const x = (clientX / this.viewW) * 2 - 1;
+    const y = 1 - (clientY / this.viewH) * 2;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const id = await this.hole.pick(this.renderer, x, y);
+      if (id !== null) return id;
+      await new Promise((r) => setTimeout(r, 16));
+    }
+    return 0;
   }
 
   /** Throttled async read of the body ID under the pointer. Never stalls. */
   private updatePicking(): void {
+    if (this.touchInput) return;
     const canPick = isInteractive() && !isLocked() && this.pointerActive && rig.bodies > 0.5 && rig.park === 0;
     if (!canPick) {
       if (hoveredBody() !== 0) setHovered(0);
@@ -367,19 +434,32 @@ export class Engine {
   };
 
   private onPointerMove = (e: PointerEvent): void => {
-    if (e.pointerType === 'touch') return;
+    this.touchInput = e.pointerType === 'touch';
+    if (this.touchInput) return;
     this.pointerActive = true;
     this.targetX = (e.clientX / this.viewW) * 2 - 1;
     this.targetY = 1 - (e.clientY / this.viewH) * 2;
+  };
+
+  private onPointerDown = (e: PointerEvent): void => {
+    this.touchInput = e.pointerType === 'touch';
   };
 
   private onPointerLeave = (): void => {
     this.pointerActive = false;
   };
 
+  private onVisibility = (): void => {
+    this.paused = document.hidden;
+    // Resuming produces one huge delta and a few uneven frames: don't judge them.
+    if (!this.paused) this.quality.settle();
+  };
+
   dispose(): void {
+    document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointerdown', this.onPointerDown);
     document.documentElement.removeEventListener('pointerleave', this.onPointerLeave);
     this.composer.dispose();
     this.renderer.dispose();

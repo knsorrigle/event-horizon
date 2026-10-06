@@ -1,4 +1,5 @@
 import { Stage } from '../components/Stage';
+import { DebugPanel, debugEnabled } from '../components/DebugPanel';
 import { Home } from '../routes/Home';
 import { NotFound, Work } from '../routes/Work';
 import { useRoute } from './router';
@@ -15,6 +16,7 @@ export function App() {
       {/* Keyed: each case study mounts fresh (SplitText rewrites its heading's DOM). */}
       {route.name === 'work' && <Work key={route.slug} slug={route.slug} />}
       {route.name === 'notFound' && <NotFound />}
+      {debugEnabled && <DebugPanel />}
     </>
   );
 }

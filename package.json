@@ -7,7 +7,7 @@
     "predev": "node scripts/fetch-fonts.mjs",
     "dev": "vite",
     "prebuild": "node scripts/fetch-fonts.mjs",
-    "build": "tsc -p . && vite build",
+    "build": "tsc -p . && vite build && vite build --ssr src/prerender.tsx --outDir dist-ssr --emptyOutDir && node scripts/postbuild.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p .",
     "gen:bluenoise": "node scripts/gen-bluenoise.mjs"

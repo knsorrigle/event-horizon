@@ -51,3 +51,18 @@ const _f = new Vector3();
 const _r = new Vector3();
 const _u = new Vector3();
 const _tmp = new Vector3();
+
+/** Narrowest horizontal half-angle we allow (tan); keeps the disk on a phone screen. */
+const MIN_HALF_WIDTH_TAN = 0.33;
+
+/**
+ * Aspect-aware framing. The narrative is authored as a vertical field of view
+ * on a landscape screen; on portrait screens that would leave a ~16° sliver,
+ * so the vertical FOV widens until the horizontal view is at least ~36° (just
+ * enough for the whole disk), and the hero's off-centre shift relaxes toward centre.
+ */
+export function framing(fovDeg: number, shiftX: number, shiftY: number, aspect: number) {
+  const tanHalf = Math.max(Math.tan((fovDeg * Math.PI) / 360), MIN_HALF_WIDTH_TAN / aspect);
+  const portrait = Math.min(1, Math.max(0, aspect));
+  return { tanHalf, shiftX: shiftX * portrait * portrait, shiftY };
+}

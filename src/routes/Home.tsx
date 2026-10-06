@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { chapters, site, type ChapterId } from '../content/site';
 import { Frame } from '../components/Frame';
+import { HeroSection } from '../components/HeroSection';
 import { Verse } from '../components/Verse';
 import { buildFall } from '../scroll/fall';
 import { animateChapter, animateSingularity } from '../scroll/chapters';
@@ -12,11 +13,13 @@ import { getEngine } from '../engine/engineStore';
 import { lenis, onTick, prefersReducedMotion } from '../loop/ticker';
 import { resetRig, rig } from '../scroll/rig';
 import { Annotations } from '../components/Annotations';
-import { ProjectList } from '../components/ProjectList';
+import { ProjectIndex, ProjectList } from '../components/ProjectList';
+import { useRenderMode } from '../engine/engineStore';
 import { projects } from '../content/projects';
-import { hoveredBody, setInteractive, setLocked } from '../engine/interaction';
+import { hoveredBody, setHovered, setInteractive, setLocked } from '../engine/interaction';
 import { setDeparture, slingshot } from '../scroll/slingshot';
 import { navigate } from '../app/router';
+import { useDocumentMeta } from '../app/meta';
 
 // Section heights (vh) set each chapter's share of the scroll, and therefore
 // its share of the camera timeline: I ≈ 0–15%, II ≈ 15–57%, III ≈ 57–78%,
@@ -49,6 +52,7 @@ export function Home() {
   const mainRef = useRef<HTMLElement>(null);
   const chapterRef = useRef<HTMLSpanElement>(null);
   const toastRef = useRef<HTMLSpanElement>(null);
+  useDocumentMeta(`${site.name} · Event Horizon`, `${site.name} (${site.handle}): portfolio. ${site.tagline}`);
 
   useLayoutEffect(() => {
     const main = mainRef.current;
@@ -97,11 +101,38 @@ export function Home() {
     // Bodies are picked in the shader; a click on canvas space over one
     // launches the slingshot. Links and buttons keep their own behaviour.
     const onClick = (e: MouseEvent) => {
+      if (lastPointer === 'touch') return; // taps are handled below
       const id = hoveredBody();
       if (id === 0 || (e.target instanceof Element && e.target.closest('a, button'))) return;
       launch(id - 1);
     };
     window.addEventListener('click', onClick);
+
+    // Touch: no hover, so tap once to select a body (shows its annotation),
+    // tap it again to slingshot; tap empty space to clear. Scroll gestures
+    // (movement or long presses) are ignored.
+    let lastPointer = 'mouse';
+    let down: { x: number; y: number; t: number } | null = null;
+    const onPointerDown = (e: PointerEvent) => {
+      lastPointer = e.pointerType;
+      down = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' || !down) return;
+      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+      const held = performance.now() - down.t;
+      down = null;
+      if (moved > 10 || held > 450) return;
+      if (e.target instanceof Element && e.target.closest('a, button')) return;
+      const engine = getEngine();
+      if (!engine) return;
+      void engine.pickAt(e.clientX, e.clientY).then((id) => {
+        if (id !== 0 && id === hoveredBody()) launch(id - 1);
+        else setHovered(id);
+      });
+    };
+    window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    window.addEventListener('pointerup', onPointerUp, { passive: true });
 
     // Overscroll past the singularity → white hole → back at the hero.
     const stopWhiteHole = setupWhiteHole({
@@ -122,6 +153,8 @@ export function Home() {
 
     return () => {
       window.removeEventListener('click', onClick);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerup', onPointerUp);
       stopWhiteHole();
       stopCursor();
       root.style.cursor = '';
@@ -134,34 +167,18 @@ export function Home() {
   }, []);
 
   const { disk, accretion, fall } = chapters;
+  // No live bodies in the static fallback: show the projects as a visible index.
+  const fallback = useRenderMode() === 'fallback';
 
   return (
     <>
       <Frame chapterRef={chapterRef} toastRef={toastRef} />
       <Annotations />
       <main id="main" ref={mainRef}>
-        {/* I · Approach: the hero */}
-        <section id="approach" aria-labelledby="hero-name" className={`${sectionClass} h-[160vh]`}>
-          <div className={stickyClass}>
-            <div data-chapter-content className="flex h-full flex-col justify-end px-5 pb-6 md:px-10 md:pb-9">
-              <div className="flex items-end justify-between gap-8">
-                <div className="tidal">
-                  <h1 id="hero-name" className="hero-name" data-split>
-                    {site.name}
-                  </h1>
-                  <p data-line className="mt-5 max-w-[34ch] font-display text-[clamp(1.05rem,1.5vw,1.35rem)] leading-snug font-light text-ink-2 md:ml-[0.6vw]">
-                    {site.tagline}
-                  </p>
-                </div>
-                <p data-line className="label hidden pb-1 text-ink-3 md:block" aria-hidden="true">
-                  Descend ↓
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* I · Approach: the hero (also prerendered into the HTML at build) */}
+        <HeroSection />
 
-        {/* II · The Disk: projects orbit here (bodies arrive in phase 3) */}
+        {/* II · The Disk: the projects orbit here as lensed bodies */}
         <section id="disk" aria-labelledby="disk-title" className={`${sectionClass} h-[460vh]`}>
           <ProjectList onLaunch={launch} />
           <div className={stickyClass}>
@@ -174,7 +191,10 @@ export function Home() {
                   {disk.title}
                 </h2>
               </div>
-              <Verse lines={disk.verse} index="II.a" className="justify-self-end md:mr-[6vw]" />
+              <div className="flex flex-col items-end gap-10">
+                {fallback && <ProjectIndex onLaunch={launch} />}
+                <Verse lines={disk.verse} index="II.a" className="md:mr-[6vw]" />
+              </div>
             </div>
           </div>
         </section>

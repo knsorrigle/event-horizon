@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { Link, cameFromOrbit, navigate } from '../app/router';
-import { projects, type Project } from '../content/projects';
+import { useDocumentMeta } from '../app/meta';
+import { projects, visibleStack, type Project } from '../content/projects';
 import { READING, heroRig, parkRig, rig } from '../scroll/rig';
 import { getDeparture, returnToOrbit } from '../scroll/slingshot';
 import { keplerOmega } from '../engine/bodies';
@@ -33,6 +34,7 @@ export function Work({ slug }: { slug: string }) {
   const index = projects.findIndex((p) => p.slug === slug);
   const project = projects[index];
   const mainRef = useRef<HTMLElement>(null);
+  useDocumentMeta(project ? `${project.name} · Rohith A` : 'Not found · Rohith A', project?.oneLiner ?? 'Nothing escapes here.');
 
   useLayoutEffect(() => {
     const main = mainRef.current;
@@ -119,7 +121,7 @@ export function Work({ slug }: { slug: string }) {
             <SpecList
               rows={[
                 { k: 'Role', v: cs.role ?? <Pending what="your role" /> },
-                { k: 'Stack', v: project.stack.join(' · ') },
+                { k: 'Stack', v: visibleStack(project).join(' · ') },
                 { k: 'Year', v: project.year ?? <Pending what="year" /> },
                 { k: 'Surface', v: SURFACE_LABEL[project.body.surface] },
                 {

@@ -1,13 +1,18 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { projects } from '../content/projects';
+import { projects, visibleStack } from '../content/projects';
 import { getEngine } from '../engine/engineStore';
 import { useActiveBody } from '../engine/interaction';
 import { onTick, prefersReducedMotion } from '../loop/ticker';
 
+const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
 // Rough advance per character of the 8px expanded uppercase ring label.
 const RING_CHAR_PX = 6.6;
-const HOLE_LABEL = 'Photon sphere · r = 1.5 Rs  ·  Shadow · b = 2.598 Rs  ·  ';
+// Two short arcs on opposite sides of the ring, not one string wrapped round:
+// a full-circle text's bounding box is the whole circle, which would make it
+// the page's Largest Contentful Paint on phones.
+const HOLE_LABELS = ['Photon sphere · r = 1.5 Rs', 'Shadow · b = 2.598 Rs'] as const;
 
 function circlePath(r: number): string {
   return `M ${-r} 0 A ${r} ${r} 0 1 1 ${r} 0 A ${r} ${r} 0 1 1 ${-r} 0`;
@@ -163,9 +168,13 @@ export function Annotations() {
           </g>
           <circle ref={holeRing3} r="0" className="ring ring--sparse" />
           <path ref={holeText} id="hole-label-path" d="" fill="none" />
-          <text className="ring-text">
-            <textPath href="#hole-label-path">{HOLE_LABEL.repeat(2)}</textPath>
-          </text>
+          {HOLE_LABELS.map((label, i) => (
+            <text key={label} className="ring-text">
+              <textPath href="#hole-label-path" startOffset={`${i * 50}%`}>
+                {label}
+              </textPath>
+            </text>
+          ))}
         </g>
 
         {project && (
@@ -191,9 +200,9 @@ export function Annotations() {
           </p>
           <p className="mt-2 font-display text-[clamp(1.8rem,2.6vw,2.5rem)] leading-none text-ink-1">{project.name}</p>
           <p className="mt-2 font-display text-[1rem] leading-snug font-light text-ink-2">{project.oneLiner}</p>
-          <p className="label mt-3 text-[9px] text-ink-3">{project.stack.join(' · ')}</p>
+          <p className="label mt-3 text-[9px] text-ink-3">{visibleStack(project).join(' · ')}</p>
           <p className="mt-1 font-mono text-[10px] text-ink-3">{project.year ?? '—'}</p>
-          <p className="label mt-4 text-ink-2">Slingshot →</p>
+          <p className="label mt-4 text-ink-2">{coarsePointer ? 'Tap again to slingshot →' : 'Slingshot →'}</p>
         </div>
       )}
     </div>

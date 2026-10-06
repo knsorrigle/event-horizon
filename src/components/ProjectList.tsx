@@ -9,7 +9,7 @@ import { setFocused } from '../engine/interaction';
 export function ProjectList({ onLaunch }: { onLaunch: (index: number) => void }) {
   return (
     <nav aria-label="Projects" className="sr-sticky">
-      <h3>Projects</h3>
+      <h2>Projects</h2>
       <ul>
         {projects.map((p, i) => (
           <li key={p.slug}>
@@ -29,5 +29,34 @@ export function ProjectList({ onLaunch }: { onLaunch: (index: number) => void })
         ))}
       </ul>
     </nav>
+  );
+}
+
+/**
+ * Static-fallback index: with no orbiting bodies to click, the projects are
+ * listed visibly. Mouse-only duplicate of ProjectList (which keeps serving
+ * keyboard and assistive tech), so it's hidden from both.
+ */
+export function ProjectIndex({ onLaunch }: { onLaunch: (index: number) => void }) {
+  return (
+    <ol className="project-index w-full max-w-[34rem]" aria-hidden="true">
+      {projects.map((p, i) => (
+        <li key={p.slug} data-line>
+          <a
+            href={`/work/${p.slug}`}
+            tabIndex={-1}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              onLaunch(i);
+            }}
+          >
+            <span className="font-mono text-[10px] text-ink-3">{String(i + 1).padStart(2, '0')}</span>
+            <span className="font-display text-[clamp(1.4rem,2.2vw,2rem)] leading-none text-ink-1">{p.name}</span>
+            <span className="hidden font-display text-[0.95rem] font-light text-ink-2 md:block">{p.oneLiner}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
   );
 }

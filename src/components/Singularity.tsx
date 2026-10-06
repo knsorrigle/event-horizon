@@ -60,7 +60,7 @@ export function Singularity() {
           </ul>
         </div>
 
-        <p className="absolute inset-x-0 bottom-6 text-center font-mono text-[10px] text-ink-4" aria-hidden="true">
+        <p className="absolute inset-x-0 bottom-6 text-center font-mono text-[10px] text-ink-3" aria-hidden="true">
           © {new Date().getFullYear()} {site.name} · r = 1 · t → ∞ · keep falling ↓
         </p>
       </div>
