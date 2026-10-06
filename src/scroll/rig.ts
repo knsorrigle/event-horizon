@@ -27,6 +27,8 @@ export interface Rig {
   park: number;
   /** Background defocus, 0 = sharp, 1 = fully soft (case-study pages). */
   blur: number;
+  /** White-hole flare: blends the final tone toward full light, 0..1. */
+  flare: number;
 }
 
 export function heroRig(): Rig {
@@ -46,6 +48,7 @@ export function heroRig(): Rig {
     focus: 0,
     park: 0,
     blur: 0,
+    flare: 0,
   };
 }
 

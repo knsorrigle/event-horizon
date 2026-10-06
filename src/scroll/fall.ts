@@ -34,6 +34,7 @@ export interface FallSections {
   disk: HTMLElement;
   accretion: HTMLElement;
   fall: HTMLElement;
+  singularity: HTMLElement;
 }
 
 /** Must be called inside a gsap.context so it is reverted on unmount. */
@@ -53,7 +54,9 @@ export function buildFall(main: HTMLElement, s: FallSections): void {
   });
 
   // Pin the start explicitly so every later tween chains from the hero pose.
-  tl.set(rig, { ...heroRig() }, 0);
+  // (flare is left alone: the white hole animates it while scrolling home.)
+  const { flare: _flare, ...start } = heroRig();
+  tl.set(rig, start, 0);
 
   tl.to(rig, { ...vars(KEYS.approach), duration: h(s.approach) });
   tl.to(rig, { ...vars(KEYS.disk), duration: h(s.disk) });
@@ -67,4 +70,9 @@ export function buildFall(main: HTMLElement, s: FallSections): void {
   tl.to(rig, { ...vars(KEYS.horizon), duration: f * 0.1, ease: 'expo.in' });
   // Fade to black over the last stretch, under the diverging readouts.
   tl.to(rig, { fade: 1, duration: f * 0.16, ease: 'power1.in' }, `>-${f * 0.16}`);
+
+  // V · Singularity: hold at the horizon, in the dark, for the rest of the
+  // page. Its share is its height minus the one viewport it ends on, which
+  // keeps every earlier beat aligned with its section.
+  tl.to(rig, { fade: 1, duration: Math.max(1, h(s.singularity) - window.innerHeight) });
 }

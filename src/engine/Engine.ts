@@ -272,6 +272,7 @@ export class Engine {
     s.gamma.value = grain.gamma;
     // Reading mode also caps the tone, so even saturated disk light sits under text.
     s.ceiling.value = 1 - rig.blur * 0.5;
+    s.flare.value = rig.flare;
     s.levels.value = grain.levels;
     s.grainPx.value = Math.max(1, Math.round(grain.sizeCssPx));
     s.coarse.value = grain.coarse;

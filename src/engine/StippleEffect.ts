@@ -16,6 +16,7 @@ function makeUniforms(blueNoise: DataTexture) {
     blackPoint: new Uniform(0.03),
     gamma: new Uniform(0.9),
     ceiling: new Uniform(1),
+    flare: new Uniform(0),
     levels: new Uniform(3),
     grainPx: new Uniform(2),
     coarse: new Uniform(2),

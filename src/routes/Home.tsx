@@ -5,7 +5,9 @@ import { chapters, site, type ChapterId } from '../content/site';
 import { Frame } from '../components/Frame';
 import { Verse } from '../components/Verse';
 import { buildFall } from '../scroll/fall';
-import { animateChapter } from '../scroll/chapters';
+import { animateChapter, animateSingularity } from '../scroll/chapters';
+import { setupWhiteHole } from '../scroll/whitehole';
+import { Singularity } from '../components/Singularity';
 import { getEngine } from '../engine/engineStore';
 import { lenis, onTick, prefersReducedMotion } from '../loop/ticker';
 import { resetRig, rig } from '../scroll/rig';
@@ -46,6 +48,7 @@ function launch(index: number): void {
 export function Home() {
   const mainRef = useRef<HTMLElement>(null);
   const chapterRef = useRef<HTMLSpanElement>(null);
+  const toastRef = useRef<HTMLSpanElement>(null);
 
   useLayoutEffect(() => {
     const main = mainRef.current;
@@ -56,11 +59,12 @@ export function Home() {
 
     const ctx = gsap.context(() => {
       if (!prefersReducedMotion) {
-        buildFall(main, { approach: get('approach'), disk: get('disk'), accretion: get('accretion'), fall: get('fall') });
+        buildFall(main, { approach: get('approach'), disk: get('disk'), accretion: get('accretion'), fall: get('fall'), singularity: get('singularity') });
       }
       (Object.keys(chapters) as ChapterId[]).forEach((id) => {
         const section = get(id);
-        if (id !== 'singularity') animateChapter(section, { enter: id !== 'approach', reducedMotion: prefersReducedMotion });
+        if (id === 'singularity') animateSingularity(section, { reducedMotion: prefersReducedMotion });
+        else animateChapter(section, { enter: id !== 'approach', reducedMotion: prefersReducedMotion });
         ScrollTrigger.create({
           trigger: section,
           start: 'top center',
@@ -98,6 +102,15 @@ export function Home() {
       launch(id - 1);
     };
     window.addEventListener('click', onClick);
+
+    // Overscroll past the singularity → white hole → back at the hero.
+    const stopWhiteHole = setupWhiteHole({
+      main,
+      onEject: () => {
+        const toast = toastRef.current;
+        if (toast) gsap.timeline().fromTo(toast, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }).to(toast, { autoAlpha: 0, duration: 0.8 }, '+=3');
+      },
+    });
     let lastCursor = 0;
     const stopCursor = onTick(() => {
       const id = hoveredBody();
@@ -109,6 +122,7 @@ export function Home() {
 
     return () => {
       window.removeEventListener('click', onClick);
+      stopWhiteHole();
       stopCursor();
       root.style.cursor = '';
       stopTidal();
@@ -123,7 +137,7 @@ export function Home() {
 
   return (
     <>
-      <Frame chapterRef={chapterRef} />
+      <Frame chapterRef={chapterRef} toastRef={toastRef} />
       <Annotations />
       <main id="main" ref={mainRef}>
         {/* I · Approach: the hero */}
@@ -207,10 +221,8 @@ export function Home() {
           </div>
         </section>
 
-        {/* V · Singularity: contact arrives in phase 5 */}
-        <section id="singularity" aria-label="Singularity" className="flex h-svh items-center justify-center">
-          <p className="label text-ink-4">{chapters.singularity.numeral} · Singularity</p>
-        </section>
+        {/* V · Singularity: a beat of black, then contact. Overscroll for the white hole. */}
+        <Singularity />
       </main>
     </>
   );

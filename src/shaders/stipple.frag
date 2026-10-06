@@ -12,6 +12,7 @@ uniform vec2 noiseOffset;      // re-rolled a few times per second → shimmer
 uniform float exposure;
 uniform float blackPoint;     // HDR luminance below this is pure black
 uniform float gamma;
+uniform float flare;           // white-hole eruption: tone → full light, through the grain
 uniform float ceiling;         // caps tone after mapping (reading mode dims highlights too)
 uniform float levels;          // quantisation levels (fewer = grainier)
 uniform float grainPx;         // device pixels per grain cell
@@ -38,6 +39,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   // halos near the disk are far above it and keep their grain.
   float lum = max(inputColor.r * exposure - blackPoint, 0.0);
   float t = pow(1.0 - exp(-lum), gamma) * ceiling;
+  t = mix(t, 1.0, flare);
 
   vec2 cell = floor(gl_FragCoord.xy / grainPx);
   float nFine = threshold(cell, vec2(0.0));

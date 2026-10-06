@@ -41,7 +41,21 @@ export const chapters = {
   singularity: {
     numeral: 'V',
     name: 'Singularity',
+    headline: 'Send a signal.',
+    // Physically: nothing leaves from inside the horizon. Email is the exception we allow.
+    note: 'Light can’t get out of here. Email can.',
   },
 } as const;
 
 export type ChapterId = keyof typeof chapters;
+
+/**
+ * Contact. TODO(rohith): fill every value; nothing here is guessed.
+ * null renders a [TODO] marker in dev and is omitted in production.
+ */
+export const contact: readonly { label: string; kind: 'email' | 'url' | 'file'; value: string | null }[] = [
+  { label: 'Email', kind: 'email', value: null }, // TODO(rohith): address
+  { label: 'GitHub', kind: 'url', value: null }, // TODO(rohith): profile URL
+  { label: 'LinkedIn', kind: 'url', value: null }, // TODO(rohith): profile URL
+  { label: 'Résumé', kind: 'file', value: null }, // TODO(rohith): drop the PDF in /public and put its path here
+];

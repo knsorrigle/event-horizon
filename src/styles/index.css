@@ -177,6 +177,37 @@
 /* ------------------------------------------------------ case study --- */
 
 @layer components {
+  .contact-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(3.25rem, 9vw, 9.5rem);
+    line-height: 0.85;
+    letter-spacing: -0.02em;
+    color: var(--color-ink-1);
+  }
+  .contact-list > li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1.5rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--color-ink-4);
+  }
+  .contact-list > li:first-child {
+    border-top: 1px solid var(--color-ink-4);
+  }
+  .contact-link {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-ink-1);
+    transition: letter-spacing 0.3s ease, color 0.3s ease;
+  }
+  /* No colour on hover: tracking opens, like light stretching. */
+  .contact-link:hover,
+  .contact-link:focus-visible {
+    letter-spacing: 0.06em;
+  }
+
   .case-bar {
     background: linear-gradient(to bottom, var(--color-void) 0%, rgb(5 6 7 / 0.85) 45%, rgb(5 6 7 / 0));
   }
@@ -395,6 +426,17 @@
   letter-spacing: 0.3em;
   text-transform: uppercase;
   fill: var(--color-ink-2);
+}
+
+/* ------------------------------------------------------- white hole --- */
+
+/* During the eruption the HUD inverts against the light (difference of greys
+   is still grey: no hue), and its dark scrim steps aside. */
+.is-flaring .frame {
+  mix-blend-mode: difference;
+}
+.is-flaring .frame .scrim::before {
+  opacity: 0;
 }
 
 /* -------------------------------------------------- view transitions --- */
