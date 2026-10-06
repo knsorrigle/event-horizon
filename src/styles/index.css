@@ -531,6 +531,22 @@
     transform 0.4s ease,
     fill 0.3s ease;
 }
+.sound-toggle__text {
+  color: var(--color-ink-3);
+  transition: color 0.3s ease;
+}
+.sound-toggle__state {
+  /* Fixed width: ON and OFF swap without nudging the centred button. */
+  display: inline-block;
+  min-width: 3.2em;
+  color: var(--color-ink-2);
+}
+.sound-toggle:hover .sound-toggle__text,
+.sound-toggle:focus-visible .sound-toggle__text,
+.sound-toggle:hover .sound-toggle__state,
+.sound-toggle:focus-visible .sound-toggle__state {
+  color: var(--color-ink-1);
+}
 .sound-toggle__flat {
   stroke: var(--color-ink-2);
   stroke-width: 1;
