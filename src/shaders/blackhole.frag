@@ -145,16 +145,29 @@ void main() {
 
   vec3 dir = normalize(uCamBasis * vec3(p, 1.0));
 
+  // The camera is a static observer at radius r0, and `dir` is a direction in
+  // its local orthonormal frame. Converting to the coordinate direction the
+  // integrator needs squashes the radial component by the lapse sqrt(1 - 1/r0):
+  // that makes the initial du/dφ match the exact geodesic, so lensing stays
+  // correct as the camera falls in (it is not "at infinity" any more).
   vec3 pos = uCamPos;
-  vec3 vel = dir;
+  float r0 = length(pos);
+  vec3 radial = pos / r0;
+  float lapse = sqrt(max(1.0 - 1.0 / r0, 1e-4));
+  vec3 vel = dir + (lapse - 1.0) * dot(dir, radial) * radial;
   vec3 hvec = cross(pos, vel);
   float k = 1.5 * dot(hvec, hvec) * uLensing;
 
-  // Photon L_z / E about the disk's spin axis (+y). The photon physically
-  // travels along -dir; E is normalised at the camera (r ≈ 40, error ~1/r).
-  float lambda = dot(cross(pos, -dir), vec3(0.0, 1.0, 0.0));
+  // Photon L_z / E about the disk's spin axis (+y). It travels along -dir;
+  // the impact parameter seen by a static observer is r sinψ / lapse.
+  float lambda = dot(cross(pos, -dir), vec3(0.0, 1.0, 0.0)) / lapse;
 
-  float escapeR = length(uCamPos) * 1.02 + 1.0;
+  // Static observers deep in the well see all incoming light blueshifted by
+  // 1 / lapse, which brightens disk and sky alike as the camera falls.
+  float observerBoost = pow(1.0 / lapse, uBeaming);
+
+  // Far enough out that the remaining bending is negligible.
+  float escapeR = max(r0 * 1.02 + 1.0, 25.0);
   float escapeR2 = escapeR * escapeR;
 
   float lum = 0.0;
@@ -200,5 +213,5 @@ void main() {
     lum += trans * sky(normalize(vel), pixelAngle);
   }
 
-  fragColor = vec4(vec3(lum), 1.0);
+  fragColor = vec4(vec3(lum * observerBoost), 1.0);
 }

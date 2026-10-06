@@ -105,6 +105,49 @@
     margin-left: -0.04em;
   }
 
+  .chapter-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(3.75rem, 10.5vw, 11.5rem);
+    line-height: 0.82;
+    letter-spacing: -0.02em;
+    color: var(--color-ink-1);
+    margin-left: -0.04em;
+  }
+
+  /* Spaghettification. --tidal (0 → 1) rises as the camera nears the horizon:
+     type stretches along the fall axis, thins across it, and its tracking
+     drifts open. Rigid HUD chrome is deliberately left out. */
+  .tidal {
+    transform-origin: 50% 100%;
+    transform: scale(calc(1 - var(--tidal, 0) * 0.05), calc(1 + var(--tidal, 0) * 0.22));
+  }
+  .tidal .label,
+  .tidal.label {
+    letter-spacing: calc(0.24em + var(--tidal, 0) * 0.16em);
+  }
+  .tidal .chapter-title,
+  .tidal .hero-name {
+    letter-spacing: calc(-0.02em + var(--tidal, 0) * 0.09em);
+  }
+
+  /* A soft pool of void behind text that sits over bright disk light, like
+     the clear margin a caption gets on a print. Fades with its content. */
+  .scrim {
+    position: relative;
+    isolation: isolate;
+    /* Shrink-wrap, so the radial pool is centred on the words themselves. */
+    width: fit-content;
+  }
+  .scrim::before {
+    content: '';
+    position: absolute;
+    inset: -3.5rem -5rem;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(closest-side, rgb(5 6 7 / 0.82), rgb(5 6 7 / 0.55) 55%, rgb(5 6 7 / 0));
+  }
+
   .readouts {
     display: grid;
     gap: 0.35rem;

@@ -15,6 +15,7 @@ import { BlackHolePass } from './BlackHolePass';
 import { StippleEffect } from './StippleEffect';
 import { solveCamera } from './camera';
 import { params } from './params';
+import { rig } from '../scroll/rig';
 
 // Device pixel ratios above this don't buy the raymarch anything visible.
 const MAX_DPR = 2;
@@ -35,8 +36,9 @@ export interface EngineOptions {
 
 export class Engine {
   readonly stats: EngineStats = { fps: 0, frameMs: 0, benchMs: null, marchWidth: 0, marchHeight: 0, maxSteps: 0 };
-  /** Live camera radius in Rs; the HUD reads this. */
+  /** Live camera radius in Rs and elevation above the disk plane; the HUD reads these. */
   cameraRadius: number = params.camera.distance;
+  cameraElevationDeg: number = params.camera.elevationDeg;
 
   private readonly renderer: WebGLRenderer;
   private readonly composer: EffectComposer;
@@ -129,7 +131,7 @@ export class Engine {
   }
 
   private applyParams(dt: number): void {
-    const { raymarch, disk, sky, camera, pointer, bloom, grain } = params;
+    const { raymarch, disk, sky, pointer, bloom, grain } = params;
     const u = this.hole.uniforms;
 
     // Pointer smoothing: slow for the camera drift, quicker for the lens.
@@ -142,26 +144,29 @@ export class Engine {
     const massTarget = this.pointerActive ? pointer.mass : 0;
     this.lensMass += (massTarget - this.lensMass) * kCam;
 
+    // The scroll narrative drives `rig`; the pointer adds a small parallax orbit.
+    const elevationDeg = rig.elevationDeg + this.camY * pointer.parallaxDeg * 0.6;
     solveCamera(
       {
-        distance: camera.distance,
-        azimuthDeg: camera.azimuthDeg + this.camX * pointer.parallaxDeg,
-        elevationDeg: camera.elevationDeg + this.camY * pointer.parallaxDeg * 0.6,
-        rollDeg: camera.rollDeg,
+        distance: Math.exp(rig.logR),
+        azimuthDeg: rig.azimuthDeg + this.camX * pointer.parallaxDeg,
+        elevationDeg,
+        rollDeg: rig.rollDeg,
       },
       u.uCamPos.value,
       u.uCamBasis.value,
     );
     this.cameraRadius = u.uCamPos.value.length();
+    this.cameraElevationDeg = elevationDeg;
 
-    const tanHalf = Math.tan((camera.fovDeg * Math.PI) / 360);
+    const tanHalf = Math.tan((rig.fovDeg * Math.PI) / 360);
     const aspect = this.viewW / this.viewH;
     u.uTanHalfFov.value = tanHalf;
-    u.uLensShift.value.set(camera.lensShiftX, camera.lensShiftY);
+    u.uLensShift.value.set(rig.shiftX, rig.shiftY);
     // Cursor in the same view-plane units the shader builds rays in.
     u.uCursor.value.set(
-      (this.lensX - camera.lensShiftX) * aspect * tanHalf,
-      (this.lensY - camera.lensShiftY) * tanHalf,
+      (this.lensX - rig.shiftX) * aspect * tanHalf,
+      (this.lensY - rig.shiftY) * tanHalf,
       this.lensMass,
     );
 
@@ -187,7 +192,7 @@ export class Engine {
     this.bloom.mipmapBlurPass.radius = bloom.radius;
 
     const s = this.stipple.u;
-    s.exposure.value = grain.exposure;
+    s.exposure.value = grain.exposure * rig.exposure * (1 - rig.fade);
     s.blackPoint.value = grain.blackPoint;
     s.gamma.value = grain.gamma;
     s.levels.value = grain.levels;

@@ -4,9 +4,16 @@ import { params } from '../engine/params';
 import { staticRedshift, timeDilation } from '../engine/physics';
 import { onTick } from '../loop/ticker';
 
+/** Above this the numbers are meaningless for a static observer: show ∞. */
+const HORIZON_EPS = 1.0005;
+
+function fmt(v: number, digits: number): string {
+  return Number.isFinite(v) && v < 1e4 ? v.toFixed(digits) : '∞';
+}
+
 /**
  * Instrument readouts computed from the live camera radius. Written straight
- * into text nodes ~10×/s; React never re-renders for them.
+ * into text nodes ~12×/s; React never re-renders for them.
  */
 export function Readouts({ className = '' }: { className?: string }) {
   const rRef = useRef<HTMLSpanElement>(null);
@@ -18,13 +25,16 @@ export function Readouts({ className = '' }: { className?: string }) {
     let acc = Infinity;
     return onTick((_t, dms) => {
       acc += dms;
-      if (acc < 100) return;
+      if (acc < 80) return;
       acc = 0;
-      const r = getEngine()?.cameraRadius ?? params.camera.distance;
-      if (rRef.current) rRef.current.textContent = r.toFixed(2);
-      if (tRef.current) tRef.current.textContent = timeDilation(r).toFixed(4);
-      if (zRef.current) zRef.current.textContent = staticRedshift(r).toFixed(4);
-      if (iRef.current) iRef.current.textContent = (90 - params.camera.elevationDeg).toFixed(1);
+      const engine = getEngine();
+      const r = engine?.cameraRadius ?? params.camera.distance;
+      const elev = engine?.cameraElevationDeg ?? params.camera.elevationDeg;
+      const atHorizon = r <= HORIZON_EPS;
+      if (rRef.current) rRef.current.textContent = r.toFixed(r < 2 ? 3 : 2);
+      if (tRef.current) tRef.current.textContent = atHorizon ? '∞' : fmt(timeDilation(r), 4);
+      if (zRef.current) zRef.current.textContent = atHorizon ? '∞' : fmt(staticRedshift(r), 4);
+      if (iRef.current) iRef.current.textContent = (90 - elev).toFixed(1);
     });
   }, []);
 
@@ -47,7 +57,7 @@ export function Readouts({ className = '' }: { className?: string }) {
       <div>
         <dt>i</dt>
         <dd>
-          <span ref={iRef}>83.5</span>°
+          <span ref={iRef}>82.0</span>°
         </dd>
       </div>
     </dl>

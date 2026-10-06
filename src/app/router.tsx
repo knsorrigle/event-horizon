@@ -2,7 +2,7 @@
 // routing dependency isn't worth it.
 import { useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent } from 'react';
 import { flushSync } from 'react-dom';
-import { prefersReducedMotion } from '../loop/ticker';
+import { lenis, prefersReducedMotion } from '../loop/ticker';
 
 export type Route = { name: 'home' } | { name: 'work'; slug: string } | { name: 'notFound' };
 
@@ -37,7 +37,9 @@ export function navigate(to: string): void {
   if (to === getPath()) return;
   withTransition(() => {
     window.history.pushState(null, '', to);
-    window.scrollTo(0, 0);
+    // Reset through Lenis when it's driving the scroll, or its state desyncs.
+    if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
+    else window.scrollTo(0, 0);
     emit();
   });
 }

@@ -3,11 +3,11 @@
 import { Pane } from 'tweakpane';
 import type { Engine } from '../engine/Engine';
 import { params } from '../engine/params';
-import { onTick } from '../loop/ticker';
+import { lenis, onTick } from '../loop/ticker';
 
 export function mountDevTools(engine: Engine): () => void {
   // Console handle for profiling: __eh.params.raymarch.maxSteps = 96, etc.
-  Object.assign(window, { __eh: { params, engine } });
+  Object.assign(window, { __eh: { params, engine, lenis } });
 
   const pane = new Pane({ title: 'event horizon · tuning', expanded: false });
   pane.element.parentElement?.style.setProperty('z-index', '100');
